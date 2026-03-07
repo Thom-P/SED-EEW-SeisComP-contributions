@@ -55,14 +55,8 @@ class Listener(seiscomp.client.Application):
         self.storeReport = False
         self.ei = seiscomp.system.Environment.Instance()
         
-        self.report_head_point_src = "                                                                   |#St.   |                                                              \n"
-        self.report_head_point_src += "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Author   |Creation t.            |Tdiff(current o.)\n"
-        self.report_head_point_src += "-"*int(len(self.report_head_point_src)/2-1) + "\n"
-        
-        self.report_head_finite_fault = "                                                                   |#St.   |                                                              \n"
-        self.report_head_finite_fault += "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Str.|Len. |Author   |Creation t.            |Tdiff(current o.)\n"
-        self.report_head_finite_fault += "-"*int(len(self.report_head_finite_fault)/2-1) + "\n"
-        
+        self.report_headers_dict = self.createReportHeaders()
+                
         self.report_directory = os.path.join(self.ei.logDir(), 'EEW_reports')
         # email settings
         self.sendemail = True
@@ -111,7 +105,29 @@ class Listener(seiscomp.client.Application):
         self.eewComment = True #
 
         self.eewScript= None 
-        
+
+    def createReportHeaders(self):
+        report_headers_dict = {}
+        #main_header = "EEW reference solution:\n"
+        #report_headers_dict['main'] = main_header
+
+        point_src = (
+            "Table 1: Point-source solutions",
+            "                                                                   |#St.   |                                                   ",
+            "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Author   |Creation t.            |Tdiff(current o.)",
+            "-------------------------------------------------------------------------------------------------------------------------------\n"
+        )
+        report_headers_dict['point_src'] = "\n".join(point_src)
+
+        finite_source = (
+            "Table 2: Finite-source solutions",
+            "                                                                   |#St.   |                                                              ",
+            "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Str.|Len. |Author   |Creation t.            |Tdiff(current o.)",
+            "------------------------------------------------------------------------------------------------------------------------------------------\n"
+        )
+        report_headers_dict['finite_source'] = "\n".join(finite_source)
+        return report_headers_dict
+
     def validateParameters(self):
         try:
             if seiscomp.client.Application.validateParameters(self) == False:
@@ -675,8 +691,6 @@ class Listener(seiscomp.client.Application):
         seiscomp.logging.info("Generating report for event %s " % evID)
 
         prefindex = sorted(self.event_dict[evID]['updates'].keys())[-1]
-        #report_point_src = self.report_head_point_src
-        #report_finite_fault = self.report_head_finite_fault
         point_src_updates = []
         finite_fault_updates = []    
 
@@ -710,6 +724,7 @@ class Listener(seiscomp.client.Application):
                 f"{ed['ts']:s}", 
                 f"{ed['diff']:6.2f}"
             )
+            
             point_src_updates.append("|".join(formatted_params_point_src))
             
             if ed['centroid_lat'] is not None and ed['centroid_lon'] is not None:
@@ -724,7 +739,7 @@ class Listener(seiscomp.client.Application):
                     f"{ed['likelihood']:4.2f}" if 'likelihood' in ed else "    ",
                     f"{ed['nstorg']:3d}",
                     f"{ed['nstmag']:3s}", 
-                    f"{ed['rupture-strike']:4d}" if 'rupture-strike' in ed else "    ", 
+                    f"{int(ed['rupture-strike']):4d}" if 'rupture-strike' in ed else "    ", 
                     f"{ed['rupture-length']:5.2f}" if 'rupture-length' in ed else "     ", 
                     f"{ed['author'][:9]:9s}", 
                     f"{ed['ts']:s}", 
@@ -734,11 +749,24 @@ class Listener(seiscomp.client.Application):
 
             if ed['difftopref'] < self.event_dict[evID]['diff']:
                 self.event_dict[evID]['diff'] = ed['difftopref']
-        report_pt_src = self.report_head_point_src + "\n".join(point_src_updates)
+        
+        report_pt_src = self.report_headers_dict['point_src'] + "\n".join(point_src_updates)
         report_ff = ""
         if len(finite_fault_updates) > 0:
-            report_ff = self.report_head_finite_fault + "\n".join(finite_fault_updates)
-        report = "\n\n".join((report_pt_src, report_ff))
+            report_ff = self.report_headers_dict['finite_source'] + "\n".join(finite_fault_updates)
+        
+        ed_pref = self.event_dict[evID]['updates'][prefindex]
+        pref_solution = (
+            "EEW reference solution:\n",
+            f"Time: {ed_pref['ot']}",
+            f"Lat: {ed_pref['lat']:6.2f}",
+            f"Lon: {ed_pref['lon']:7.2f}",
+            f"Depth: {ed_pref['depth']:6.2f}",
+            f"Mag: {ed_pref['magnitude']:4.2f}",
+            f"Author: {ed_pref['author']}"
+        )
+        report_pref = "\n".join(pref_solution)
+        report = "\n\n".join([report_pref, report_pt_src, report_ff])
 
         if self.storeReport:
             self.event_dict[evID]['report'] = report
@@ -773,7 +801,10 @@ class Listener(seiscomp.client.Application):
             seiscomp.logging.debug("There is an active timer for event %s (%s sec elapsed) "
                                     % (evID, timer.elapsed().seconds()))
             if timer.elapsed().seconds() > self.generateReportTimeout:
-                self.generateReport(evID)
+                try:
+                    self.generateReport(evID)
+                except Exception as e:
+                    seiscomp.logging.error(f"Error occurred while generating report for event {evID}: {e}")
                 timer.reset()
 
     def setupGenerateReportTimer(self, magID):
