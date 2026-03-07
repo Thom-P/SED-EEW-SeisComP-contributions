@@ -695,7 +695,7 @@ class Listener(seiscomp.client.Application):
             ed['difftopref'] = difftime.length()
             ed['difftopref'] += self.event_dict[evID]['updates'][prefindex]['diff']
             
-            formatted_params_point_src = {
+            formatted_params_point_src = (
                 f"{ed['difftopref']:6.2f}",
                 f"{ed['type']:4s}",
                 f"{mag:4.2f}", 
@@ -709,11 +709,11 @@ class Listener(seiscomp.client.Application):
                 f"{ed['author'][:9]:9s}", 
                 f"{ed['ts']:s}", 
                 f"{ed['diff']:6.2f}"
-            }
+            )
             point_src_updates.append("|".join(formatted_params_point_src))
             
             if ed['centroid_lat'] is not None and ed['centroid_lon'] is not None:
-                formatted_params_finite_fault = {
+                formatted_params_finite_fault = (
                     f"{ed['difftopref']:6.2f}",
                     f"{ed['type']:4s}",
                     f"{mag:4.2f}", 
@@ -729,7 +729,7 @@ class Listener(seiscomp.client.Application):
                     f"{ed['author'][:9]:9s}", 
                     f"{ed['ts']:s}", 
                     f"{ed['diff']:6.2f}"
-                }
+                )
                 finite_fault_updates.append("|".join(formatted_params_finite_fault))
 
             if ed['difftopref'] < self.event_dict[evID]['diff']:
@@ -738,7 +738,7 @@ class Listener(seiscomp.client.Application):
         report_ff = ""
         if len(finite_fault_updates) > 0:
             report_ff = self.report_head_finite_fault + "\n".join(finite_fault_updates)
-        report = "\n".join((report_pt_src, report_ff))
+        report = "\n\n".join((report_pt_src, report_ff))
 
         if self.storeReport:
             self.event_dict[evID]['report'] = report
@@ -808,7 +808,6 @@ class Listener(seiscomp.client.Application):
             return
 
         # Fetch corresponding centroid origin if any
-
         try:
             seiscomp.logging.debug("Trying to get origin methodID")
             orgMethodID = org.methodID()
@@ -1107,8 +1106,8 @@ class Listener(seiscomp.client.Application):
                 seiscomp.logging.debug(
                     "Received %s magnitude for origin %s" % (magnitude.type(), parentID))
                 org = self.cache.get(seiscomp.datamodel.Origin, parentID)
-                self.printOriginType(org)
-                self.printParentEventParams(org)
+                #self.printOriginType(org)
+                #self.printParentEventParams(org)
                 self.origin_lookup[magnitude.publicID()] = parentID
                 self.setupGenerateReportTimer(magnitude.publicID())
         except:
@@ -1117,17 +1116,17 @@ class Listener(seiscomp.client.Application):
                 sys.stderr.write(i)
 
     # For debug TP
-    def printParentEventParams(self, org):
-        try:
-            ep = org.eventParameters()
-            if ep is None:
-                seiscomp.logging.info("TP: origin has no parent event params")
-                parentID = org.parent().publicID()
-                seiscomp.logging.info("TP: origin parent ID is %s" % parentID)
-                return
-            seiscomp.logging.info("TP: parent event params ID is %s" % ep.publicID())
-        except:
-            seiscomp.logging.info("TP: error while retrieving parent object")
+    # def printParentEventParams(self, org):
+    #     try:
+    #         ep = org.eventParameters()
+    #         if ep is None:
+    #             seiscomp.logging.info("TP: origin has no parent event params")
+    #             parentID = org.parent().publicID()
+    #             seiscomp.logging.info("TP: origin parent ID is %s" % parentID)
+    #             return
+    #         seiscomp.logging.info("TP: parent event params ID is %s" % ep.publicID())
+    #     except:
+    #         seiscomp.logging.info("TP: error while retrieving parent object")
 
 
     def handleOrigin(self, org, parentID):
@@ -1137,20 +1136,24 @@ class Listener(seiscomp.client.Application):
         """
         try:
             seiscomp.logging.debug("Received origin %s" % org.publicID())
-            self.printOriginType(org)
-            self.printParentEventParams(org)
+            #self.printOriginType(org)
+            #self.printParentEventParams(org)
             # add lookup entry
             try:
                 otype = org.type()
+                seiscomp.logging.debug(f"HandleOrigin: {org.publicID()} is of type {otype}")
             except:
                 otype = -1
-            if org.methodID() == "FinDer" and otype == 1: # 1 == "CENTROID"
+                seiscomp.logging.debug(f"HandleOrigin: {org.publicID()} is of type UNSET, assigning -1")
+            if  otype == 1: # 1 == "CENTROID"; (and org.methodID() == "FinDer", nb undefined in scfinder)
                 creationTime = org.creationInfo().creationTime()
                 seiscomp.logging.debug(f"Origin {org.publicID()} created at {creationTime} is a FinDer CENTROID, adding it to centroid lookup table")
                 try:
                     self.centroid_lookup[creationTime.iso()] = org.publicID()
                 except Exception as e:
                     seiscomp.logging.error("Error occurred while adding origin to centroid lookup table: %s" % repr(e))
+            else:
+                seiscomp.logging.debug(f"Could not input lookup centroid: method={org.methodID()}, type={otype}")
             self.cache.feed(org)
         except:
             info = traceback.format_exception(*sys.exc_info())
@@ -1158,12 +1161,12 @@ class Listener(seiscomp.client.Application):
                 sys.stderr.write(i)
 
     # For debug TP
-    def printOriginType(self, org):
-        try:
-            otype = org.type()
-        except:
-            otype = "UNSET"
-        seiscomp.logging.info("TP: origin type %s" % otype)
+    # def printOriginType(self, org):
+    #     try:
+    #         otype = org.type()
+    #     except:
+    #         otype = "UNSET"
+    #     seiscomp.logging.info("TP: origin type %s" % otype)
 
     def handlePick(self, pk, parentID):
         """
