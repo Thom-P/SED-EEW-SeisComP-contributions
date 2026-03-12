@@ -28,6 +28,8 @@ import seiscomp.geo
 import socket
 import json
 
+import pickle
+
 #import logReports
 
 class Listener(seiscomp.client.Application):
@@ -46,6 +48,9 @@ class Listener(seiscomp.client.Application):
         self.cache = seiscomp.datamodel.PublicObjectTimeSpanBuffer()
         self.expirationtime = 3600.
         self.event_dict = {}
+        
+        self.event_dict_pickable = {} # to save and debug format without pback
+        
         self.origin_lookup = {}
         self.event_lookup = {}
         self.centroid_lookup = {} # creation time <-> centroidID table to fetch centroid origin from epicenter origin (same creation time in finder) 
@@ -106,6 +111,18 @@ class Listener(seiscomp.client.Application):
 
         self.eewScript= None 
 
+
+    def test_pickle(self, event_dict, position):
+        # Test if the event_dict can be pickled and unpickled without errors
+        try:
+            test_pickle_file = '/tmp/test_event_dict.pkl'
+            with open(test_pickle_file, 'wb') as f:
+                pickle.dump(event_dict, f)
+            os.remove(test_pickle_file)
+            seiscomp.logging.info(f"Pickle test at position {position} successful: event_dict can be pickled without errors.")
+        except Exception as e:
+            seiscomp.logging.error(f"Pickle test at position {position} failed: {e}")
+
     def createReportHeaders(self):
         report_headers_dict = {}
         #main_header = "EEW reference solution:\n"
@@ -165,7 +182,6 @@ class Listener(seiscomp.client.Application):
         """
         Read configuration file.
         """
-        seiscomp.logging.info("Tho dev version test")
         if not seiscomp.client.Application.initConfiguration(self):
             return False
 
@@ -573,7 +589,7 @@ class Listener(seiscomp.client.Application):
         """
         if not seiscomp.client.Application.init(self):
             return False
-
+        
         seiscomp.logging.info(
             "Listening to magnitude types %s" % str(self.magTypes))
 
@@ -682,14 +698,22 @@ class Listener(seiscomp.client.Application):
     #         self.sendMail(self.event_dict[evID], evID)
     #     self.event_dict[evID]['published'] = True
 
-
+    
     def generateReport(self, evID):
         """
         Generate a report for an event, write it to disk and optionally send
         it as an email.
         """
         seiscomp.logging.info("Generating report for event %s " % evID)
-
+        # Save event dictionary to pickle file
+        try:
+            pickle_file = '/home/sysop/.seiscomp/log/event_data.pkl'
+            with open(pickle_file, 'wb') as f:
+                pickle.dump(self.event_dict_pickable[evID], f)
+            seiscomp.logging.info(f"Event dictionary saved to {pickle_file}")
+        except Exception as e:
+            seiscomp.logging.error(f"Error saving event dictionary to pickle: {e}")
+        
         prefindex = sorted(self.event_dict[evID]['updates'].keys())[-1]
         point_src_updates = []
         finite_fault_updates = []    
@@ -902,33 +926,57 @@ class Listener(seiscomp.client.Application):
             timer.reset()
 
         self.event_dict[evID]['updates'][updateno] = {}
+        self.event_dict_pickable[evID]['updates'][updateno] = {}
         self.event_dict[evID]['updates'][updateno]['magID'] = magID
+        self.event_dict_pickable[evID]['updates'][updateno]['magID'] = magID
+        self.test_pickle(self.event_dict_pickable, 30) # for testing purposes - to be removed
         self.event_dict[evID]['updates'][updateno]['type'] = mag.type()
+        self.event_dict_pickable[evID]['updates'][updateno]['type'] = mag.type()
         self.event_dict[evID]['updates'][updateno]['author'] = mag.creationInfo(
         ).author()
+        self.event_dict_pickable[evID]['updates'][updateno]['author'] = mag.creationInfo(
+        ).author()
+
+        self.test_pickle(self.event_dict_pickable, 31) # for testing purposes - to be removed
+        
         self.event_dict[evID]['updates'][updateno]['magnitude'] = mag.magnitude(
         ).value()
+        self.event_dict_pickable[evID]['updates'][updateno]['magnitude'] = mag.magnitude(
+        ).value()
         self.event_dict[evID]['updates'][updateno]['lat'] = org.latitude().value()
+        self.event_dict_pickable[evID]['updates'][updateno]['lat'] = org.latitude().value()
         self.event_dict[evID]['updates'][updateno]['lon'] = org.longitude().value()
+        self.event_dict_pickable[evID]['updates'][updateno]['lon'] = org.longitude().value()
         self.event_dict[evID]['updates'][updateno]['depth'] = org.depth().value()
+        self.event_dict_pickable[evID]['updates'][updateno]['depth'] = org.depth().value()
         centroid_lat, centroid_lon = None, None
         if centroid:
             centroid_lat, centroid_lon = centroid.latitude().value(), centroid.longitude().value()
         self.event_dict[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
+        self.event_dict_pickable[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
         self.event_dict[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
+        self.event_dict_pickable[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
         self.event_dict[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
+        self.event_dict_pickable[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
         try:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = str(
                 mag.stationCount())
+            self.event_dict_pickable[evID]['updates'][updateno]['nstmag'] = str(
+                mag.stationCount())
         except:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = ''
+            self.event_dict_pickable[evID]['updates'][updateno]['nstmag'] = ''
         try:
             self.event_dict[evID]['updates'][updateno]['ts'] = \
+                mag.creationInfo().modificationTime().toString("%FT%T.%2fZ")
+            self.event_dict_pickable[evID]['updates'][updateno]['ts'] = \
                 mag.creationInfo().modificationTime().toString("%FT%T.%2fZ")
             difftime = mag.creationInfo().modificationTime() - org.time().value()
             reftime = mag.creationInfo().modificationTime()
         except:
             self.event_dict[evID]['updates'][updateno]['ts'] = \
+                mag.creationInfo().creationTime().toString("%FT%T.%2fZ")
+            self.event_dict_pickable[evID]['updates'][updateno]['ts'] = \
                 mag.creationInfo().creationTime().toString("%FT%T.%2fZ")
             difftime = mag.creationInfo().creationTime() - org.time().value()
             reftime = mag.creationInfo().creationTime()
@@ -936,9 +984,12 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['diff'] = difftime.length()
         self.event_dict[evID]['updates'][updateno]['ot'] = \
             org.time().value().toString("%FT%T.%2fZ")
-        
+        self.event_dict_pickable[evID]['updates'][updateno]['ot'] = \
+            org.time().value().toString("%FT%T.%2fZ")
+
         self.event_dict[evID]['updates'][updateno]['eew'] =  False
-        
+        self.event_dict_pickable[evID]['updates'][updateno]['eew'] =  False
+
         seiscomp.logging.info("Number of updates %d for event %s" % (
             len(self.event_dict[evID]['updates']), evID))
         seiscomp.logging.info("lat: %f; lon: %f; mag: %f; ot: %s" %
@@ -947,6 +998,8 @@ class Listener(seiscomp.client.Application):
                                 mag.magnitude().value(),
                                 org.time().value().toString("%FT%T.%4fZ")))
 
+        self.test_pickle(self.event_dict_pickable, 32) # for testing purposes - to be removed
+        
         # Start generateReport timer
         timer.restart()
 
@@ -1222,6 +1275,7 @@ class Listener(seiscomp.client.Application):
                 eventsRemoved.add(evID)
         for evID in eventsRemoved:
             self.event_dict.pop(evID)
+            self.event_dict_pickable.pop(evID)
             seiscomp.logging.debug("Expired event %s" % evID)
 
         originsRemoved = set()
@@ -1272,17 +1326,35 @@ class Listener(seiscomp.client.Application):
 
             if evID not in self.event_dict.keys():
                 self.event_dict[evID] = {}
+                self.event_dict_pickable[evID] = {}
+
                 self.event_dict[evID]['published'] = False
+                self.event_dict_pickable[evID]['published'] = False
+                
                 self.event_dict[evID]['alert'] = False
+                self.event_dict_pickable[evID]['alert'] = False
+                
                 self.event_dict[evID]['lastupdatesent'] = None
+                self.event_dict_pickable[evID]['lastupdatesent'] = None
+
                 self.event_dict[evID]['updates'] = {}
+                self.event_dict_pickable[evID]['updates'] = {}
+                
                 self.event_dict[evID]['alert_counter'] = 0
+                self.event_dict_pickable[evID]['alert_counter'] = 0
+
                 try:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().modificationTime()
+                    self.event_dict_pickable[evID]['timestamp'] = \
+                        evt.creationInfo().modificationTime().iso()
+                
                 except:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().creationTime()
+                    self.event_dict_pickable[evID]['timestamp'] = \
+                        evt.creationInfo().creationTime().iso()
+
                 if self.event_dict[evID]['timestamp'] > self.latest_event:
                     self.latest_event = self.event_dict[evID]['timestamp']
                 self.event_dict[evID]['report_timer'] = seiscomp.utils.StopWatch(False)
@@ -1433,16 +1505,22 @@ class Listener(seiscomp.client.Application):
                 if comment.id() == 'likelihood':
                     self.event_dict[evID]['updates'][updateno]['likelihood'] = lhVal = \
                             float(comment.text())
+                    self.event_dict_pickable[evID]['updates'][updateno]['likelihood'] = lhVal = \
+                            float(comment.text())
+                    
                     seiscomp.logging.info("likelihood value: %s" % lhVal)
                             
                 elif comment.id() == 'rupture-strike':
                     self.event_dict[evID]['updates'][updateno]['rupture-strike'] = \
                             float(comment.text())
-                
+                    self.event_dict_pickable[evID]['updates'][updateno]['rupture-strike'] = \
+                            float(comment.text())
+
                 elif comment.id() == 'rupture-length':
                     self.event_dict[evID]['updates'][updateno]['rupture-length'] = \
                             float(comment.text())
-                
+                    self.event_dict_pickable[evID]['updates'][updateno]['rupture-length'] = \
+                            float(comment.text())                
                 #Evaluation to send or not an alert
                 
                 magType = self.event_dict[evID]['updates'][updateno]['type']
@@ -1629,11 +1707,15 @@ class Listener(seiscomp.client.Application):
             else:
                 seiscomp.logging.debug('Sending alert....')
                 self.event_dict[evID]['updates'][updateno]['eew'] = True
+                self.event_dict_pickable[evID]['updates'][updateno]['eew'] = True
                 self.event_dict[evID]['alert_counter'] += 1
-                 
+                self.event_dict_pickable[evID]['alert_counter'] += 1
+
                 #saving the last update sent or reported
                 self.event_dict[evID]['lastupdatesent'] = updateno 
+                self.event_dict_pickable[evID]['lastupdatesent'] = updateno
                 self.event_dict[evID]['alert'] = True
+                self.event_dict_pickable[evID]['alert'] = True
                 
                 self.sendAlert( magID )
                 self.execScript( magID, updateno, 
@@ -1646,6 +1728,8 @@ class Listener(seiscomp.client.Application):
             seiscomp.logging.info('No profiles but activeMQ enabled. sending an alert...')
             self.event_dict[evID]['lastupdatesent'] = updateno 
             self.event_dict[evID]['alert'] = True
+            self.event_dict_pickable[evID]['lastupdatesent'] = updateno
+            self.event_dict_pickable[evID]['alert'] = True
 
             self.sendAlert( magID )
             self.execScript( magID, updateno )
