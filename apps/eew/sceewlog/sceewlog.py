@@ -48,9 +48,6 @@ class Listener(seiscomp.client.Application):
         self.cache = seiscomp.datamodel.PublicObjectTimeSpanBuffer()
         self.expirationtime = 3600.
         self.event_dict = {}
-        
-        self.event_dict_pickable = {} # to save and debug format without pback
-        
         self.origin_lookup = {}
         self.event_lookup = {}
         self.centroid_lookup = {} # creation time <-> centroidID table to fetch centroid origin from epicenter origin (same creation time in finder) 
@@ -60,7 +57,7 @@ class Listener(seiscomp.client.Application):
         self.storeReport = False
         self.ei = seiscomp.system.Environment.Instance()
         
-        self.report_headers_dict = self.createReportHeaders()
+        self.report_headers = self.createReportHeaders()
                 
         self.report_directory = os.path.join(self.ei.logDir(), 'EEW_reports')
         # email settings
@@ -110,40 +107,6 @@ class Listener(seiscomp.client.Application):
         self.eewComment = True #
 
         self.eewScript= None 
-
-
-    def test_pickle(self, event_dict, position):
-        # Test if the event_dict can be pickled and unpickled without errors
-        try:
-            test_pickle_file = '/tmp/test_event_dict.pkl'
-            with open(test_pickle_file, 'wb') as f:
-                pickle.dump(event_dict, f)
-            os.remove(test_pickle_file)
-            seiscomp.logging.info(f"Pickle test at position {position} successful: event_dict can be pickled without errors.")
-        except Exception as e:
-            seiscomp.logging.error(f"Pickle test at position {position} failed: {e}")
-
-    def createReportHeaders(self):
-        report_headers_dict = {}
-        #main_header = "EEW reference solution:\n"
-        #report_headers_dict['main'] = main_header
-
-        point_src = (
-            "Table 1: Point-source solutions",
-            "                                                                   |#St.   |                                                   ",
-            "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Author   |Creation t.            |Tdiff(current o.)",
-            "-------------------------------------------------------------------------------------------------------------------------------\n"
-        )
-        report_headers_dict['point_src'] = "\n".join(point_src)
-
-        finite_source = (
-            "Table 2: Finite-source solutions",
-            "                                                                   |#St.   |                                                              ",
-            "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Str.|Len. |Author   |Creation t.            |Tdiff(current o.)",
-            "------------------------------------------------------------------------------------------------------------------------------------------\n"
-        )
-        report_headers_dict['finite_source'] = "\n".join(finite_source)
-        return report_headers_dict
 
     def validateParameters(self):
         try:
@@ -697,117 +660,7 @@ class Listener(seiscomp.client.Application):
     #     if self.sendemail and threshold_exceeded:
     #         self.sendMail(self.event_dict[evID], evID)
     #     self.event_dict[evID]['published'] = True
-
     
-    def generateReport(self, evID):
-        """
-        Generate a report for an event, write it to disk and optionally send
-        it as an email.
-        """
-        seiscomp.logging.info("Generating report for event %s " % evID)
-        # Save event dictionary to pickle file
-        try:
-            pickle_file = '/home/sysop/.seiscomp/log/event_data.pkl'
-            with open(pickle_file, 'wb') as f:
-                pickle.dump(self.event_dict_pickable[evID], f)
-            seiscomp.logging.info(f"Event dictionary saved to {pickle_file}")
-        except Exception as e:
-            seiscomp.logging.error(f"Error saving event dictionary to pickle: {e}")
-        
-        prefindex = sorted(self.event_dict[evID]['updates'].keys())[-1]
-        point_src_updates = []
-        finite_fault_updates = []    
-
-        threshold_exceeded = False
-        self.event_dict[evID]['diff'] = 9999
-        for _i in sorted(self.event_dict[evID]['updates'].keys()):
-            ed = self.event_dict[evID]['updates'][_i]
-            mag = ed['magnitude']
-            if ( mag > self.magThresh and 
-                ( self.email_sendForAlertOnly is False or 
-                  self.event_dict[evID]['alert'] )):
-                threshold_exceeded = True
-
-            difftime = ed['tsobject'] - \
-                self.event_dict[evID]['updates'][prefindex]['tsobject']
-            ed['difftopref'] = difftime.length()
-            ed['difftopref'] += self.event_dict[evID]['updates'][prefindex]['diff']
-            
-            formatted_params_point_src = (
-                f"{ed['difftopref']:6.2f}",
-                f"{ed['type']:4s}",
-                f"{mag:4.2f}", 
-                f"{ed['lat']:6.2f}", 
-                f"{ed['lon']:7.2f}", 
-                f"{ed['depth']:6.2f}", 
-                f"{ed['ot']:s}", 
-                f"{ed['likelihood']:4.2f}" if 'likelihood' in ed else "    ",
-                f"{ed['nstorg']:3d}",
-                f"{ed['nstmag']:3s}", 
-                f"{ed['author'][:9]:9s}", 
-                f"{ed['ts']:s}", 
-                f"{ed['diff']:6.2f}"
-            )
-            
-            point_src_updates.append("|".join(formatted_params_point_src))
-            
-            if ed['centroid_lat'] is not None and ed['centroid_lon'] is not None:
-                formatted_params_finite_fault = (
-                    f"{ed['difftopref']:6.2f}",
-                    f"{ed['type']:4s}",
-                    f"{mag:4.2f}", 
-                    f"{ed['centroid_lat']:6.2f}", 
-                    f"{ed['centroid_lon']:7.2f}", 
-                    f"{ed['depth']:6.2f}", 
-                    f"{ed['ot']:s}", 
-                    f"{ed['likelihood']:4.2f}" if 'likelihood' in ed else "    ",
-                    f"{ed['nstorg']:3d}",
-                    f"{ed['nstmag']:3s}", 
-                    f"{int(ed['rupture-strike']):4d}" if 'rupture-strike' in ed else "    ", 
-                    f"{ed['rupture-length']:5.2f}" if 'rupture-length' in ed else "     ", 
-                    f"{ed['author'][:9]:9s}", 
-                    f"{ed['ts']:s}", 
-                    f"{ed['diff']:6.2f}"
-                )
-                finite_fault_updates.append("|".join(formatted_params_finite_fault))
-
-            if ed['difftopref'] < self.event_dict[evID]['diff']:
-                self.event_dict[evID]['diff'] = ed['difftopref']
-        
-        report_pt_src = self.report_headers_dict['point_src'] + "\n".join(point_src_updates)
-        report_ff = ""
-        if len(finite_fault_updates) > 0:
-            report_ff = self.report_headers_dict['finite_source'] + "\n".join(finite_fault_updates)
-        
-        ed_pref = self.event_dict[evID]['updates'][prefindex]
-        pref_solution = (
-            "EEW reference solution:\n",
-            f"Time: {ed_pref['ot']}",
-            f"Lat: {ed_pref['lat']:6.2f}",
-            f"Lon: {ed_pref['lon']:7.2f}",
-            f"Depth: {ed_pref['depth']:6.2f}",
-            f"Mag: {ed_pref['magnitude']:4.2f}",
-            f"Author: {ed_pref['author']}"
-        )
-        report_pref = "\n".join(pref_solution)
-        report = "\n\n".join([report_pref, report_pt_src, report_ff])
-
-        if self.storeReport:
-            self.event_dict[evID]['report'] = report
-            if not os.path.isdir(self.report_directory):
-                os.makedirs(self.report_directory)
-            f = open(os.path.join(self.report_directory,
-                                  '%s_report.txt' % evID.replace('/', '_')), 'w')
-            f.writelines(self.event_dict[evID]['report'])
-            f.close()
-        self.event_dict[evID]['type'] = ed['type']
-        self.event_dict[evID]['magnitude'] = ed['magnitude']
-        seiscomp.logging.info("\n" + report)
-        if self.sendemail and threshold_exceeded:
-            self.sendMail(self.event_dict[evID], evID)
-        self.event_dict[evID]['published'] = True
-
-
     def handleTimeout(self):
         self.checkExpiredTimers()
         # send heartbeat every 5 seconds
@@ -926,57 +779,35 @@ class Listener(seiscomp.client.Application):
             timer.reset()
 
         self.event_dict[evID]['updates'][updateno] = {}
-        self.event_dict_pickable[evID]['updates'][updateno] = {}
         self.event_dict[evID]['updates'][updateno]['magID'] = magID
-        self.event_dict_pickable[evID]['updates'][updateno]['magID'] = magID
-        self.test_pickle(self.event_dict_pickable, 30) # for testing purposes - to be removed
         self.event_dict[evID]['updates'][updateno]['type'] = mag.type()
-        self.event_dict_pickable[evID]['updates'][updateno]['type'] = mag.type()
         self.event_dict[evID]['updates'][updateno]['author'] = mag.creationInfo(
         ).author()
-        self.event_dict_pickable[evID]['updates'][updateno]['author'] = mag.creationInfo(
-        ).author()
 
-        self.test_pickle(self.event_dict_pickable, 31) # for testing purposes - to be removed
         
         self.event_dict[evID]['updates'][updateno]['magnitude'] = mag.magnitude(
         ).value()
-        self.event_dict_pickable[evID]['updates'][updateno]['magnitude'] = mag.magnitude(
-        ).value()
         self.event_dict[evID]['updates'][updateno]['lat'] = org.latitude().value()
-        self.event_dict_pickable[evID]['updates'][updateno]['lat'] = org.latitude().value()
         self.event_dict[evID]['updates'][updateno]['lon'] = org.longitude().value()
-        self.event_dict_pickable[evID]['updates'][updateno]['lon'] = org.longitude().value()
         self.event_dict[evID]['updates'][updateno]['depth'] = org.depth().value()
-        self.event_dict_pickable[evID]['updates'][updateno]['depth'] = org.depth().value()
         centroid_lat, centroid_lon = None, None
         if centroid:
             centroid_lat, centroid_lon = centroid.latitude().value(), centroid.longitude().value()
         self.event_dict[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
-        self.event_dict_pickable[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
         self.event_dict[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
-        self.event_dict_pickable[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
         self.event_dict[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
-        self.event_dict_pickable[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
         try:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = str(
                 mag.stationCount())
-            self.event_dict_pickable[evID]['updates'][updateno]['nstmag'] = str(
-                mag.stationCount())
         except:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = ''
-            self.event_dict_pickable[evID]['updates'][updateno]['nstmag'] = ''
         try:
             self.event_dict[evID]['updates'][updateno]['ts'] = \
-                mag.creationInfo().modificationTime().toString("%FT%T.%2fZ")
-            self.event_dict_pickable[evID]['updates'][updateno]['ts'] = \
                 mag.creationInfo().modificationTime().toString("%FT%T.%2fZ")
             difftime = mag.creationInfo().modificationTime() - org.time().value()
             reftime = mag.creationInfo().modificationTime()
         except:
             self.event_dict[evID]['updates'][updateno]['ts'] = \
-                mag.creationInfo().creationTime().toString("%FT%T.%2fZ")
-            self.event_dict_pickable[evID]['updates'][updateno]['ts'] = \
                 mag.creationInfo().creationTime().toString("%FT%T.%2fZ")
             difftime = mag.creationInfo().creationTime() - org.time().value()
             reftime = mag.creationInfo().creationTime()
@@ -984,11 +815,8 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['diff'] = difftime.length()
         self.event_dict[evID]['updates'][updateno]['ot'] = \
             org.time().value().toString("%FT%T.%2fZ")
-        self.event_dict_pickable[evID]['updates'][updateno]['ot'] = \
-            org.time().value().toString("%FT%T.%2fZ")
 
         self.event_dict[evID]['updates'][updateno]['eew'] =  False
-        self.event_dict_pickable[evID]['updates'][updateno]['eew'] =  False
 
         seiscomp.logging.info("Number of updates %d for event %s" % (
             len(self.event_dict[evID]['updates']), evID))
@@ -998,8 +826,6 @@ class Listener(seiscomp.client.Application):
                                 mag.magnitude().value(),
                                 org.time().value().toString("%FT%T.%4fZ")))
 
-        self.test_pickle(self.event_dict_pickable, 32) # for testing purposes - to be removed
-        
         # Start generateReport timer
         timer.restart()
 
@@ -1275,7 +1101,6 @@ class Listener(seiscomp.client.Application):
                 eventsRemoved.add(evID)
         for evID in eventsRemoved:
             self.event_dict.pop(evID)
-            self.event_dict_pickable.pop(evID)
             seiscomp.logging.debug("Expired event %s" % evID)
 
         originsRemoved = set()
@@ -1326,34 +1151,24 @@ class Listener(seiscomp.client.Application):
 
             if evID not in self.event_dict.keys():
                 self.event_dict[evID] = {}
-                self.event_dict_pickable[evID] = {}
 
                 self.event_dict[evID]['published'] = False
-                self.event_dict_pickable[evID]['published'] = False
                 
                 self.event_dict[evID]['alert'] = False
-                self.event_dict_pickable[evID]['alert'] = False
                 
                 self.event_dict[evID]['lastupdatesent'] = None
-                self.event_dict_pickable[evID]['lastupdatesent'] = None
 
                 self.event_dict[evID]['updates'] = {}
-                self.event_dict_pickable[evID]['updates'] = {}
                 
                 self.event_dict[evID]['alert_counter'] = 0
-                self.event_dict_pickable[evID]['alert_counter'] = 0
 
                 try:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().modificationTime()
-                    self.event_dict_pickable[evID]['timestamp'] = \
-                        evt.creationInfo().modificationTime().iso()
                 
                 except:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().creationTime()
-                    self.event_dict_pickable[evID]['timestamp'] = \
-                        evt.creationInfo().creationTime().iso()
 
                 if self.event_dict[evID]['timestamp'] > self.latest_event:
                     self.latest_event = self.event_dict[evID]['timestamp']
@@ -1505,22 +1320,16 @@ class Listener(seiscomp.client.Application):
                 if comment.id() == 'likelihood':
                     self.event_dict[evID]['updates'][updateno]['likelihood'] = lhVal = \
                             float(comment.text())
-                    self.event_dict_pickable[evID]['updates'][updateno]['likelihood'] = lhVal = \
-                            float(comment.text())
                     
                     seiscomp.logging.info("likelihood value: %s" % lhVal)
                             
                 elif comment.id() == 'rupture-strike':
                     self.event_dict[evID]['updates'][updateno]['rupture-strike'] = \
                             float(comment.text())
-                    self.event_dict_pickable[evID]['updates'][updateno]['rupture-strike'] = \
-                            float(comment.text())
 
                 elif comment.id() == 'rupture-length':
                     self.event_dict[evID]['updates'][updateno]['rupture-length'] = \
                             float(comment.text())
-                    self.event_dict_pickable[evID]['updates'][updateno]['rupture-length'] = \
-                            float(comment.text())                
                 #Evaluation to send or not an alert
                 
                 magType = self.event_dict[evID]['updates'][updateno]['type']
@@ -1707,15 +1516,11 @@ class Listener(seiscomp.client.Application):
             else:
                 seiscomp.logging.debug('Sending alert....')
                 self.event_dict[evID]['updates'][updateno]['eew'] = True
-                self.event_dict_pickable[evID]['updates'][updateno]['eew'] = True
                 self.event_dict[evID]['alert_counter'] += 1
-                self.event_dict_pickable[evID]['alert_counter'] += 1
 
                 #saving the last update sent or reported
                 self.event_dict[evID]['lastupdatesent'] = updateno 
-                self.event_dict_pickable[evID]['lastupdatesent'] = updateno
                 self.event_dict[evID]['alert'] = True
-                self.event_dict_pickable[evID]['alert'] = True
                 
                 self.sendAlert( magID )
                 self.execScript( magID, updateno, 
@@ -1728,8 +1533,6 @@ class Listener(seiscomp.client.Application):
             seiscomp.logging.info('No profiles but activeMQ enabled. sending an alert...')
             self.event_dict[evID]['lastupdatesent'] = updateno 
             self.event_dict[evID]['alert'] = True
-            self.event_dict_pickable[evID]['lastupdatesent'] = updateno
-            self.event_dict_pickable[evID]['alert'] = True
 
             self.sendAlert( magID )
             self.execScript( magID, updateno )
@@ -1806,6 +1609,168 @@ class Listener(seiscomp.client.Application):
         seiscomp.logging.info("sceew-logging is running.")
         return seiscomp.client.Application.run(self)
 
+###### New fcts
+
+
+def generateReport(self, evID):
+        """
+        Generate a report for an event, write it to disk and optionally send
+        it as an email.
+        """
+
+        header_point_src, header_finite_src = self.report_headers
+
+        ed_all = self.event_dict[evID]
+
+        print(f"Alert counter: {ed_all['alert_counter']}")
+
+        prefindex = sorted(ed_all['updates'].keys())[-1] # get the latest update as the preferred solution
+        ed_pref = ed_all['updates'][prefindex]
+        point_src_updates, finite_src_updates = [], []
+        alert_index, update_index = -1, -1
+
+        threshold_exceeded = False
+        ed_all['diff'] = 9999
+        for _i in sorted(ed_all['updates'].keys()): # update_index, update_key in enumerate(sorted(ed_all['updates'].keys())):
+            update_index += 1
+            ed_curr = ed_all['updates'][_i]
+            if ed_curr['eew'] is True:
+                alert_index += 1
+            
+            mag = ed_curr['magnitude']
+            if ( mag > self.magThresh and 
+                ( self.email_sendForAlertOnly is False or 
+                  self.event_dict[evID]['alert'] )):
+                threshold_exceeded = True
+
+            difftime = ed_curr['tsobject'] - \
+                ed_pref['tsobject']
+            ed_curr['difftopref'] = difftime.length()
+            ed_curr['difftopref'] += ed_pref['diff']
+            
+            format_params_point_src, format_params_finite_src = getFormattedUpdate(ed_curr, update_index, alert_index)
+            point_src_updates.append("|".join(format_params_point_src))
+            if format_params_finite_src is not None:
+                finite_src_updates.append("|".join(format_params_finite_src))
+        
+        report_point_src = header_point_src + "\n".join(point_src_updates)
+        report_finite_src = ""
+        if len(finite_src_updates) > 0:
+            report_finite_src = header_finite_src + "\n".join(finite_src_updates)
+      
+        report_pref = getFormattedPrefSolution(ed_pref)
+        report = "\n\n".join([report_pref, report_point_src, report_finite_src])
+
+        if ed_curr['difftopref'] < ed_all['diff']: # TODO improve, first sorted update should win
+            ed_all['diff'] = ed_curr['difftopref']
+
+        if self.storeReport:
+            ed_all['report'] = report
+            if not os.path.isdir(self.report_directory):
+                os.makedirs(self.report_directory)
+            with open(os.path.join(self.report_directory,
+                                  '%s_report.txt' % evID.replace('/', '_')), 'w') as f:
+                f.writelines(ed_all['report'])
+        
+        ed_all['type'] = ed_pref['type']
+        ed_all['magnitude'] = ed_pref['magnitude']
+        
+        seiscomp.logging.info("\n" + report)
+        if self.sendemail and threshold_exceeded:
+            self.sendMail(self.event_dict[evID], evID)
+        ed_all['published'] = True
+
+
+def getFormattedPrefSolution(ed_pref):
+    """
+    Extract and format the preferred solution data for the report.
+    """
+    pref_params = (
+            "EEW reference solution:\n",
+            f"Time:   {ed_pref['ot'].replace('Z', ' UTC')}",
+            f"Lat:    {ed_pref['lat']:.3f}",
+            f"Lon:    {ed_pref['lon']:.3f}",
+            f"Depth:  {ed_pref['depth']:.1f}",
+            f"Mag:    {ed_pref['magnitude']:.2f} {ed_pref['type']}",
+            f"Author: {ed_pref['author']}"
+    )
+    return "\n".join(pref_params)
+
+def getFormattedUpdate(ed, update_index, alert_index):
+    """
+    Extract and format individual update data for the report.
+    """
+    simple_author = ed['author']
+    author_split_index = simple_author.find("@")
+    if author_split_index != -1:
+        simple_author = simple_author[:author_split_index]
+
+    format_params_point_src = getFormatParamsPointSrc(ed, update_index, alert_index, simple_author)
+
+    format_params_finite_src = None
+    if ed['centroid_lat'] is not None and ed['centroid_lon'] is not None:
+        format_params_finite_src = getFormatParamsFiniteSource(ed, update_index, simple_author)
+    return format_params_point_src, format_params_finite_src
+
+def getFormatParamsPointSrc(ed, update_index, alert_index, simple_author):
+    """
+    Extract and format the point-source solution data for the current update.
+    """
+    format_params_point_src = (
+        f"{update_index:>3d}",
+        f"{ed['difftopref']:>6.2f}",
+        f"{ed['type']:>4s}",
+        f"{ed['magnitude']:>5.2f}", 
+        f"{ed['lat']:>7.3f}", 
+        f"{ed['lon']:>8.3f}", 
+        f"{ed['depth']:>6.1f}", 
+        f"{ed['ot'][11:22]:>12s}", 
+        f"{ed['likelihood']:5.2f}" if 'likelihood' in ed else " " * 5,
+        f"{ed['nstorg']:>3d}",
+        f"{ed['nstmag']:>3s}", 
+        f" {ed['ts'][11:22]:s}", 
+        f" {simple_author[:9]:<9s}", 
+        f"{ed['diff']:>7.2f}",
+        f"{alert_index:>4d}" if ed['eew'] else " " * 4
+    )
+    return format_params_point_src
+           
+def getFormatParamsFiniteSource(ed, update_index, simple_author):
+    """
+    Extract and format the finite-source solution data for the current update.
+    """
+    format_params_finite_src = (
+        f"{update_index:>3d}",
+        f"{ed['difftopref']:6.2f}",
+        f"{ed['centroid_lat']:7.3f}", 
+        f"{ed['centroid_lon']:8.3f}", 
+        f"{int(ed['rupture-strike']):4d}" if 'rupture-strike' in ed else " " * 4, 
+        f"{ed['rupture-length']:5.1f}" if 'rupture-length' in ed else " " * 5, 
+        f" {ed['ts'][11:22]:s}", 
+        f" {simple_author[:9]:<9s}",         
+    )
+    return format_params_finite_src
+
+def createReportHeaders():
+    """
+    Create the headers for the report tables.
+    """
+    point_src = (
+        "Table 1: Point-source solutions\n",
+        "                                                                | #St.  |                               | Alert ",
+        "  #|dt-ref|Type|  Mag|   Lat |    Lon | Depth|  Orig time | Lik | Or| Ma|   Creation | Author   |dt-curr| App",
+        "---------------------------------------------------------------------------------------------------------------\n"
+    )
+    finite_source = (
+        "Table 2: Finite-source solutions\n",
+        "          |   Centroid     |",
+        "  #|dt-ref|   Lat |    Lon | Str| Len |   Creation | Author",
+        "-----------------------------------------------------------\n"
+    )
+    return "\n".join(point_src), "\n".join(finite_source)
+
+
+#####
 
 if __name__ == '__main__':
     import sys
