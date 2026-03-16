@@ -28,8 +28,6 @@ import seiscomp.geo
 import socket
 import json
 
-import pickle
-
 #import logReports
 
 class Listener(seiscomp.client.Application):
@@ -1112,6 +1110,10 @@ class Listener(seiscomp.client.Application):
                 self.event_lookup.pop(_orgID)
                 debuglog="Expired origin %s (ev %s)"
                 seiscomp.logging.debug(debuglog % (_orgID, _evID))
+                creationTime = self.cache.get(seiscomp.datamodel.Origin, _orgID).creationInfo().creationTime()
+                if creationTime and creationTime.iso() in self.centroid_lookup:
+                    centroidID = self.centroid_lookup.pop(creationTime.iso())
+                    seiscomp.logging.debug(f"Expired associated centroid {centroidID}")
         
         magnitudesRemoved = set()
         if originsRemoved:
@@ -1619,11 +1621,7 @@ class Listener(seiscomp.client.Application):
             """
 
             header_point_src, header_finite_src = self.report_headers
-
             ed_all = self.event_dict[evID]
-
-            print(f"Alert counter: {ed_all['alert_counter']}")
-
             prefindex = sorted(ed_all['updates'].keys())[-1] # get the latest update as the preferred solution
             ed_pref = ed_all['updates'][prefindex]
             point_src_updates, finite_src_updates = [], []
@@ -1665,12 +1663,7 @@ class Listener(seiscomp.client.Application):
                 ed_all['diff'] = ed_curr['difftopref']
 
             if self.storeReport:
-                ed_all['report'] = report
-                if not os.path.isdir(self.report_directory):
-                    os.makedirs(self.report_directory)
-                with open(os.path.join(self.report_directory,
-                                    '%s_report.txt' % evID.replace('/', '_')), 'w') as f:
-                    f.writelines(ed_all['report'])
+                self.storeReport(evID, report)
             
             ed_all['type'] = ed_pref['type']
             ed_all['magnitude'] = ed_pref['magnitude']
@@ -1679,6 +1672,18 @@ class Listener(seiscomp.client.Application):
             if self.sendemail and threshold_exceeded:
                 self.sendMail(self.event_dict[evID], evID)
             ed_all['published'] = True
+
+
+    def storeReport(self, evID, report):
+        """
+        Store the generated report on disk.
+        """
+        self.event_dict[evID]['report'] = report
+        if not os.path.isdir(self.report_directory):
+            os.makedirs(self.report_directory)
+        with open(os.path.join(self.report_directory,
+                                f"{evID.replace('/', '_')}_report.txt"), 'w') as f:
+            f.writelines(report)
 
 
     def getFormattedPrefSolution(self, ed_pref):
