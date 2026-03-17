@@ -1621,57 +1621,56 @@ class Listener(seiscomp.client.Application):
             """
 
             header_point_src, header_finite_src = self.report_headers
-            ed_all = self.event_dict[evID]
-            prefindex = sorted(ed_all['updates'].keys())[-1] # get the latest update as the preferred solution
-            ed_pref = ed_all['updates'][prefindex]
-            point_src_updates, finite_src_updates = [], []
-            alert_index, update_index = -1, -1
-
-            threshold_exceeded = False
-            ed_all['diff'] = 9999
-            for _i in sorted(ed_all['updates'].keys()): # update_index, update_key in enumerate(sorted(ed_all['updates'].keys())):
-                update_index += 1
-                ed_curr = ed_all['updates'][_i]
-                if ed_curr['eew'] is True:
-                    alert_index += 1
-                
-                mag = ed_curr['magnitude']
-                if ( mag > self.magThresh and 
-                    ( self.email_sendForAlertOnly is False or 
-                    self.event_dict[evID]['alert'] )):
-                    threshold_exceeded = True
-
-                difftime = ed_curr['tsobject'] - \
-                    ed_pref['tsobject']
-                ed_curr['difftopref'] = difftime.length()
-                ed_curr['difftopref'] += ed_pref['diff']
-                
-                format_params_point_src, format_params_finite_src = self.getFormattedUpdate(ed_curr, update_index, alert_index)
-                point_src_updates.append("|".join(format_params_point_src))
-                if format_params_finite_src is not None:
-                    finite_src_updates.append("|".join(format_params_finite_src))
+            event = self.event_dict[evID]
+            updates = sorted(event['updates'].keys())
+            prefindex = updates[-1] # get the latest update as the preferred solution
+            org_pref = event['updates'][prefindex]
             
+            point_src_updates, finite_src_updates, threshold_exceeded = self.getUpdatesSolutions(event, updates, org_pref)
             report_point_src = header_point_src + "\n".join(point_src_updates)
             report_finite_src = ""
             if len(finite_src_updates) > 0:
                 report_finite_src = header_finite_src + "\n".join(finite_src_updates)
         
-            report_pref = self.getFormattedPrefSolution(ed_pref)
+            report_pref = self.getFormattedPrefSolution(org_pref)
             report = "\n\n".join([report_pref, report_point_src, report_finite_src])
-
-            if ed_curr['difftopref'] < ed_all['diff']: # TODO improve, first sorted update should win
-                ed_all['diff'] = ed_curr['difftopref']
-
-            if self.storeReport:
-                self.storeReport(evID, report)
             
-            ed_all['type'] = ed_pref['type']
-            ed_all['magnitude'] = ed_pref['magnitude']
-            
-            seiscomp.logging.info("\n" + report)
             if self.sendemail and threshold_exceeded:
                 self.sendMail(self.event_dict[evID], evID)
-            ed_all['published'] = True
+            if self.storeReport:
+                self.storeReport(evID, report)
+            seiscomp.logging.info("\n" + report)
+            event['diff'] = event['updates'][updates[0]]['difftopref'] # modified, first solution should be fastest by def
+            event['type'] = org_pref['type']
+            event['magnitude'] = org_pref['magnitude']
+            event['published'] = True
+
+    def getUpdatesSolutions(self, event, updates, org_pref):
+        """
+        Build the point-source and finite-source solutions updates/lines for the report.
+        """
+        point_src_updates, finite_src_updates = [], []
+        i_alert = -1
+
+        threshold_exceeded = False
+        event['diff'] = 9999
+        for i_update, update in enumerate(updates):
+            org_curr = event['updates'][update]
+            if org_curr['eew'] is True:
+                i_alert += 1
+            
+            if ( org_curr['magnitude'] > self.magThresh and 
+                ( self.email_sendForAlertOnly is False or event['alert'] )):
+                threshold_exceeded = True
+
+            difftime = org_curr['tsobject'] - org_pref['tsobject']
+            org_curr['difftopref'] = difftime.length() + org_pref['diff']
+            
+            format_params_point_src, format_params_finite_src = self.getFormattedUpdate(org_curr, i_update, i_alert)
+            point_src_updates.append("|".join(format_params_point_src))
+            if format_params_finite_src is not None:
+                finite_src_updates.append("|".join(format_params_finite_src))
+        return point_src_updates, finite_src_updates, threshold_exceeded
 
 
     def storeReport(self, evID, report):
