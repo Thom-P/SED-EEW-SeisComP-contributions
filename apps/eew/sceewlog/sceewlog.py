@@ -606,29 +606,29 @@ class Listener(seiscomp.client.Application):
                 continue
             seiscomp.logging.debug("There is an active timer for event %s (%s sec elapsed) "
                                     % (evID, timer.elapsed().seconds()))
-            if timer.elapsed().seconds() > self.generateReportTimeout:
-                try:
-                    logReports.generateReport(evDict, evID, self.report_headers, self.report_directory)
-                    seiscomp.logging.info("\n" + evDict['report'])
-                except Exception as e:
-                    seiscomp.logging.error(f"Error occurred while generating report for event {evID}: {e}")
-                    timer.reset()
-                    continue
-
-                threshold_exceeded = False
-                if evDict['magnitude'] > self.magThresh:
-                    threshold_exceeded = True
-                alert_condition = True
-                if self.email_sendForAlertOnly and evDict['alert'] is False:
-                    alert_condition = False 
-
-                if self.sendemail and threshold_exceeded and alert_condition:
-                    self.sendMail(evDict, evID)
-                if self.storeReport:
-                    logReports.storeRep(evID, self.report_directory, evDict['report'])
+            if timer.elapsed().seconds() <= self.generateReportTimeout:
+                continue
+            try:
+                logReports.generateReport(evDict, self.report_headers)
                 seiscomp.logging.info("\n" + evDict['report'])
-                evDict['published'] = True
+            except Exception as e:
+                seiscomp.logging.error(f"Error occurred while generating report for event {evID}: {e}")
                 timer.reset()
+                continue
+
+            emailConditions = [
+                self.sendemail,
+                evDict['max_mag'] > self.magThresh,
+                not self.email_sendForAlertOnly or evDict['alert'] is True
+            ]
+            if all(emailConditions):
+                self.sendMail(evDict, evID)            
+ 
+            if self.storeReport:
+                logReports.storeRep(evID, self.report_directory, evDict['report'])
+            seiscomp.logging.info("\n" + evDict['report'])
+            evDict['published'] = True
+            timer.reset()
 
     def setupGenerateReportTimer(self, magID):
         """
@@ -1498,169 +1498,6 @@ class Listener(seiscomp.client.Application):
         seiscomp.logging.info("sceew-logging is running.")
         return seiscomp.client.Application.run(self)
 
-###### New fcts
-
-
-    # def generateReport(self, evID):
-    #         """
-    #         Generate a report for an event, write it to disk and optionally send
-    #         it as an email.
-    #         """
-
-    #         header_point_src, header_finite_src = self.report_headers
-    #         event = self.event_dict[evID]
-    #         updates = sorted(event['updates'].keys())
-    #         u_pref = updates[-1] # get the latest update as the preferred solution
-    #         org_pref = event['updates'][u_pref]
-            
-    #         point_src_updates, finite_src_updates, threshold_exceeded = self.getUpdatesSolutions(event, updates, org_pref)
-    #         report_point_src = header_point_src + "\n".join(point_src_updates)
-    #         report_finite_src = ""
-    #         if len(finite_src_updates) > 0:
-    #             report_finite_src = header_finite_src + "\n".join(finite_src_updates)
-        
-    #         report_pref = self.getFormattedPrefSolution(org_pref)
-    #         report = "\n\n".join([report_pref, report_point_src, report_finite_src])
-            
-    #         event['diff'] = event['updates'][updates[0]]['difftopref'] # modified, first solution should be fastest by def
-    #         event['type'] = org_pref['type']
-    #         event['magnitude'] = org_pref['magnitude']
-    #         event['report'] = report
-    #         if self.sendemail and threshold_exceeded:
-    #             self.sendMail(event, evID)
-    #         if self.storeReport:
-    #             self.storeRep(evID, report)
-    #         seiscomp.logging.info("\n" + report)
-    #         event['published'] = True
-
-    # def getUpdatesSolutions(self, event, updates, org_pref):
-    #     """
-    #     Build the point-source and finite-source solutions updates/lines for the report.
-    #     """
-    #     point_src_updates, finite_src_updates = [], []
-    #     i_alert = -1
-
-    #     threshold_exceeded = False
-    #     for i_update, update in enumerate(updates):
-    #         org_curr = event['updates'][update]
-    #         if org_curr['eew'] is True:
-    #             i_alert += 1
-            
-    #         if ( org_curr['magnitude'] > self.magThresh and 
-    #             ( self.email_sendForAlertOnly is False or event['alert'] )):
-    #             threshold_exceeded = True
-
-    #         difftime = org_curr['tsobject'] - org_pref['tsobject']
-    #         org_curr['difftopref'] = difftime.length() + org_pref['diff']
-            
-    #         format_params_point_src, format_params_finite_src = logReports.getFormattedUpdate(org_curr, i_update, i_alert)
-    #         point_src_updates.append("|".join(format_params_point_src))
-    #         if format_params_finite_src is not None:
-    #             finite_src_updates.append("|".join(format_params_finite_src))
-    #     return point_src_updates, finite_src_updates, threshold_exceeded
-
-
-    # def storeRep(self, evID, report):
-    #     """
-    #     Store the generated report on disk.
-    #     """
-    #     if not os.path.isdir(self.report_directory):
-    #         os.makedirs(self.report_directory)
-    #     with open(os.path.join(self.report_directory,
-    #                             f"{evID.replace('/', '_')}_report.txt"), 'w') as f:
-    #         f.writelines(report)
-
-
-    # def getFormattedPrefSolution(self, ed_pref):
-    #     """
-    #     Extract and format the preferred solution data for the report.
-    #     """
-    #     pref_params = (
-    #             "EEW reference solution:\n",
-    #             f"Time:   {ed_pref['ot'].replace('Z', ' UTC')}",
-    #             f"Lat:    {ed_pref['lat']:.3f}",
-    #             f"Lon:    {ed_pref['lon']:.3f}",
-    #             f"Depth:  {ed_pref['depth']:.1f}",
-    #             f"Mag:    {ed_pref['magnitude']:.2f} {ed_pref['type']}",
-    #             f"Author: {ed_pref['author']}"
-    #     )
-    #     return "\n".join(pref_params)
-
-    # def getFormattedUpdate(self, ed, update_index, alert_index):
-    #     """
-    #     Extract and format individual update data for the report.
-    #     """
-    #     simple_author = ed['author']
-    #     author_split_index = simple_author.find("@")
-    #     if author_split_index != -1:
-    #         simple_author = simple_author[:author_split_index]
-
-    #     format_params_point_src = logReports.getFormatParamsPointSrc(ed, update_index, alert_index, simple_author)
-
-    #     format_params_finite_src = None
-    #     if ed['centroid_lat'] is not None and ed['centroid_lon'] is not None:
-    #         format_params_finite_src = logReports.getFormatParamsFiniteSource(ed, update_index, simple_author)
-    #     return format_params_point_src, format_params_finite_src
-
-    # def getFormatParamsPointSrc(self, ed, update_index, alert_index, simple_author):
-    #     """
-    #     Extract and format the point-source solution data for the current update.
-    #     """
-    #     format_params_point_src = (
-    #         f"{update_index:>3d}",
-    #         f"{ed['difftopref']:>6.2f}",
-    #         f"{ed['type']:>4s}",
-    #         f"{ed['magnitude']:>5.2f}", 
-    #         f"{ed['lat']:>7.3f}", 
-    #         f"{ed['lon']:>8.3f}", 
-    #         f"{ed['depth']:>6.1f}", 
-    #         f"{ed['ot'][11:22]:>12s}", 
-    #         f"{ed['likelihood']:5.2f}" if 'likelihood' in ed else " " * 5,
-    #         f"{ed['nstorg']:>3d}",
-    #         f"{ed['nstmag']:>3s}", 
-    #         f" {ed['ts'][11:22]:s}", 
-    #         f" {simple_author[:9]:<9s}", 
-    #         f"{ed['diff']:>7.2f}",
-    #         f"{alert_index:>4d}" if ed['eew'] else " " * 4
-    #     )
-    #     return format_params_point_src
-            
-    # def getFormatParamsFiniteSource(self, ed, update_index, simple_author):
-    #     """
-    #     Extract and format the finite-source solution data for the current update.
-    #     """
-    #     format_params_finite_src = (
-    #         f"{update_index:>3d}",
-    #         f"{ed['difftopref']:6.2f}",
-    #         f"{ed['centroid_lat']:7.3f}", 
-    #         f"{ed['centroid_lon']:8.3f}", 
-    #         f"{int(ed['rupture-strike']):4d}" if 'rupture-strike' in ed else " " * 4, 
-    #         f"{ed['rupture-length']:5.1f}" if 'rupture-length' in ed else " " * 5, 
-    #         f" {ed['ts'][11:22]:s}", 
-    #         f" {simple_author[:9]:<9s}",         
-    #     )
-    #     return format_params_finite_src
-
-    # def createReportHeaders(self):
-    #     """
-    #     Create the headers for the report tables.
-    #     """
-    #     point_src = (
-    #         "Table 1: Point-source solutions\n",
-    #         "                                                                | #St.  |                               | Alert ",
-    #         "  #|dt-ref|Type|  Mag|   Lat |    Lon | Depth|  Orig time | Lik | Or| Ma|   Creation | Author   |dt-curr| App",
-    #         "---------------------------------------------------------------------------------------------------------------\n"
-    #     )
-    #     finite_source = (
-    #         "Table 2: Finite-source solutions\n",
-    #         "          |   Centroid     |",
-    #         "  #|dt-ref|   Lat |    Lon | Str| Len |   Creation | Author",
-    #         "-----------------------------------------------------------\n"
-    #     )
-    #     return "\n".join(point_src), "\n".join(finite_source)
-
-
-#####
 
 if __name__ == '__main__':
     import sys

@@ -6,7 +6,6 @@ import os
 def generateReport(event, report_headers):
     """
     Generate a report for an event, including the preferred solution, point-source and finite-source updates.
-    Determine if the alert threshold is exceeded (done here to maintain legacy behavior).
     """
 
     header_point_src, header_finite_src = report_headers
@@ -18,7 +17,7 @@ def generateReport(event, report_headers):
     report_point_src = header_point_src + "\n".join(point_src_updates)
     report_finite_src = ""
     if len(finite_src_updates) > 0:
-        report_finite_src = header_finite_src + "\n".join(finite_src_updates)
+        report_finite_src = header_finite_src + "\n".join(finite_src_updates) + "\n"
 
     report_pref = getFormattedPrefSolution(org_pref)
     report = "\n\n".join([report_pref, report_point_src, report_finite_src])
@@ -31,23 +30,25 @@ def generateReport(event, report_headers):
 def getUpdatesSolutions(event, updates, org_pref):
     """
     Build the point-source and finite-source solutions updates/lines for the report.
+    Save the max update magnitude for downstream email threshold checking 
+    (done here to maintain legacy behavior).
     """
     point_src_updates, finite_src_updates = [], []
     i_alert = -1
 
-    #threshold_exceeded = False
+    max_mag = float('-inf')
     for i_update, update in enumerate(updates):
         org_curr = event['updates'][update]
         if org_curr['eew'] is True:
             i_alert += 1
-
         difftime = org_curr['tsobject'] - org_pref['tsobject']
         org_curr['difftopref'] = difftime.length() + org_pref['diff']
-        
+        max_mag = max(max_mag, org_curr['magnitude'])
         format_params_point_src, format_params_finite_src = getFormattedUpdate(org_curr, i_update, i_alert)
         point_src_updates.append("|".join(format_params_point_src))
         if format_params_finite_src is not None:
             finite_src_updates.append("|".join(format_params_finite_src))
+    event['max_mag'] = max_mag
     return point_src_updates, finite_src_updates
 
 
@@ -127,7 +128,7 @@ def getFormatParamsFiniteSource(ed, update_index, simple_author):
         f"{int(ed['rupture-strike']):4d}" if 'rupture-strike' in ed else " " * 4, 
         f"{ed['rupture-length']:5.1f}" if 'rupture-length' in ed else " " * 5, 
         f" {ed['ts'][11:22]:s}", 
-        f" {simple_author[:9]:<9s}",         
+        f" {simple_author[:9]:<9s}"
     )
     return format_params_finite_src
 
