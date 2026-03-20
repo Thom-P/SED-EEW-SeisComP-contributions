@@ -1,7 +1,7 @@
 # sceewlog
 SET(MAIN_PY sceewlog.py)
 SET(EEWLOG_TARGET sceewlog)
-SET(EEWLOG_FILES sceewlog.py)
+SET(EEWLOG_FILES sceewlog.py logReports.py)
 
 SC_ADD_PYTHON_EXECUTABLE(EEWLOG)
 
@@ -14,7 +14,7 @@ ENDIF()
 
 IF(SC_GLOBAL_PYTHON_WRAPPER)
 # UD interface
-INSTALL(FILES ud_interface.py headlinealert.py eews2fcm.py DESTINATION ${PYTHON_LIBRARY_PATH})
+INSTALL(FILES ud_interface.py headlinealert.py eews2fcm.py logReports.py DESTINATION ${PYTHON_LIBRARY_PATH})
 
 SET(UD_DATA config/sc3ml_0.15__quakeml_1.2-RT_eewd.xsl
 config/sc3ml_0.15__shakealert.xsl
