@@ -22,7 +22,7 @@ import os
 import datetime
 from dateutil import tz
 import random
-from mistune import html
+import html
 import seiscomp.client, seiscomp.core
 import seiscomp.config, seiscomp.datamodel, seiscomp.system, seiscomp.utils
 import seiscomp.geo
