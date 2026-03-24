@@ -22,6 +22,7 @@ import os
 import datetime
 from dateutil import tz
 import random
+from mistune import html
 import seiscomp.client, seiscomp.core
 import seiscomp.config, seiscomp.datamodel, seiscomp.system, seiscomp.utils
 import seiscomp.geo
@@ -1086,10 +1087,12 @@ class Listener(seiscomp.client.Application):
         Email reports.
         """
         if test:
-            msg = MIMEText('sceewlog was started.')
+            msg = MIMEText(f"sceewlog was started on {self.hostname}")
             msg['Subject'] = 'sceewlog startup message'
         else:
-            msg = MIMEText(evt['report'])
+            html = f"<html><body><pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}</pre></body></html>"
+            msg = MIMEText(html, _subtype="html", _charset="utf-8")
+            #msg = MIMEText(evt['report'])
             subject = self.email_subject
             subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
             subject += ' / %.2fs' % evt['diff']
