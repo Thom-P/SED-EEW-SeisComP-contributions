@@ -51,6 +51,61 @@ Please refer to `ActiveMQ`_ for setting up an ActiveMQ broker.
 Reports
 =======
 
+New format (from April 2026):
+------------------------------
+Description coming soon.
+The new report format separates point-source and finite-source solutions into two distinct tables,
+and include additional information such as centroid coordinates, and alert parameters. 
+Below is an example of the first few lines of a report file:
+
+.. code-block:: sh
+
+   EEW reference solution:
+
+   Time:   2020-10-25T19:35:43.19 UTC
+   Lat:    46.883
+   Lon:    9.164
+   Depth:  5.0
+   Mag:    4.05 MVS
+   Author: scvsmag@90ad374fe739
+
+   Table 1: Point-source solutions
+
+                                                                  | #St.  |                               | Alert 
+    #|dt-ref|Type|  Mag|   Lat |    Lon | Depth|  Orig time | Lik | Or| Ma|   Creation | Author   |dt-curr| App
+    ---------------------------------------------------------------------------------------------------------------
+    0|  4.98| MVS| 4.25| 46.910|   9.232|  10.0| 19:35:40.84| 0.99|  3|  3| 19:35:48.17| scvsmag  |   7.33|   0
+    1|  5.52| Mfd| 4.20| 46.916|   9.132|  10.0| 19:35:42.15| 0.94|  0|  5| 19:35:48.71| scfinder |   6.56|   1
+    2|  5.96| MVS| 4.87| 46.910|   9.232|  10.0| 19:35:40.84| 0.99|  3|  3| 19:35:49.15| scvsmag  |   8.31|   2
+    3|  6.98| MVS| 4.10| 46.904|   9.125|  10.0| 19:35:41.59| 0.40|  7|  7| 19:35:50.16| scvsmag  |   8.57|   3
+    4|  7.25| Mfd| 4.30| 46.908|   9.132|  10.0| 19:35:42.13| 0.87|  0|  4| 19:35:50.44| scfinder |   8.31|   4
+    5|  7.98| MVS| 4.34| 46.904|   9.125|  10.0| 19:35:41.59| 0.99|  7|  7| 19:35:51.17| scvsmag  |   9.57|   5
+   ...
+   ...
+   ...
+   37| 33.20| MVS| 4.02| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:16.39| scvsmag  |  33.20|  37
+   38| 34.18| MVS| 4.03| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:17.37| scvsmag  |  34.18|  38
+   39| 35.20| MVS| 4.05| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:18.39| scvsmag  |  35.20|  39
+
+   Table 2: Finite-source solutions
+
+            |   Centroid     |
+    #|dt-ref|   Lat |    Lon | Str| Len |   Creation | Author
+   -----------------------------------------------------------
+    1|  5.52| 46.916|   9.132|  45|  0.3| 19:35:48.71| scfinder 
+    4|  7.25| 46.908|   9.132| 175|  0.8| 19:35:50.44| scfinder 
+    6|  8.51| 46.908|   9.132| 175|  1.3| 19:35:51.69| scfinder 
+    9| 10.25| 46.908|   9.132| 175|  1.3| 19:35:53.44| scfinder 
+   11| 11.51| 46.953|   9.132|  70|  1.3| 19:35:54.69| scfinder 
+   13| 12.51| 46.953|   9.132|  70|  1.3| 19:35:55.69| scfinder 
+   16| 14.25| 46.964|   9.132|  45|  1.3| 19:35:57.44| scfinder 
+   18| 15.25| 46.964|   9.164|  45|  1.3| 19:35:58.44| scfinder 
+   24| 20.25| 46.919|   9.134|  45|  1.3| 19:36:03.44| scfinder
+
+
+Legacy format (retired in March 2026):
+--------------------------------------
+
 Below is an example of the first few lines of a report file:
 
 .. code-block:: sh
@@ -69,11 +124,21 @@ Below is an example of the first few lines of a report file:
 
 *Creation time* is the time the VS magnitude message was generated, *tdiff* is
 the time difference between *creation time* and last *origin time* in seconds,
-*lik.* is the likelihood that this event is a real event (see documentation of
+*Lik.* is the likelihood that this event is a real event (see documentation of
 :ref:`scvsmag`), *#St.(Or.)* is the number of stations that contributed to the
-origin and  *#St.(Ma.)* the number of envelope streams that contributed to the
-magnitude. *Str.* and *Len.* are the strike and length of the fault line
-provided by :ref:`scfinder`.
+origin and *#St.(Ma.)* the number of envelope streams that contributed to the
+magnitude. 
+
+The report can also include solutions from :ref:`scfinder`. In this case the parameter *Or.* 
+is unused and defaults to 0, *Ma.* corresponds to the number of stations over the current pga threshold,
+and *Lik.* is a finder-specific likelihood -- a correlation between ground motion and best-fitting template -- 
+that is not comparable to the one provided by :ref:`scvsmag`. Note that the *Ma.* and *Lik.* paremeters are
+sometimes not yet available and default to empty fields (this is a known bug that will be fixed in future versions).
+Two additional parameters, *Str.* and *Len.*, provide the strike and length of the fault line as 
+determined by :ref:`scfinder`.
+
+*Lat.* and *Lon.* refer to the epicenter coordinates for both VS and FinDer solutions.
+
 
 Regionalized Filters
 ====================
