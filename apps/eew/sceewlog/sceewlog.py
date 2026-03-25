@@ -623,8 +623,10 @@ class Listener(seiscomp.client.Application):
                 not self.email_sendForAlertOnly or evDict['alert'] is True
             ]
             if all(emailConditions):
-                self.sendMail(evDict, evID)            
- 
+                try:
+                    self.sendMail(evDict, evID)
+                except Exception as e:
+                    seiscomp.logging.error(f"Error occurred while sending email for event {evID}: {e}")
             if self.storeReport:
                 logReports.saveReportToDisk(evID, self.report_directory, evDict['report'])
             seiscomp.logging.info("\n" + evDict['report'])
@@ -1090,9 +1092,8 @@ class Listener(seiscomp.client.Application):
             msg = MIMEText(f"sceewlog was started on {self.hostname}")
             msg['Subject'] = 'sceewlog startup message'
         else:
-            html = f"<html><body><pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}</pre></body></html>"
-            msg = MIMEText(html, _subtype="html", _charset="utf-8")
-            #msg = MIMEText(evt['report'])
+            report_html = f"<html><body><pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}</pre></body></html>"
+            msg = MIMEText(report_html, _subtype="html", _charset="utf-8")
             subject = self.email_subject
             subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
             subject += ' / %.2fs' % evt['diff']
