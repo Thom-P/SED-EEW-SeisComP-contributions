@@ -53,12 +53,14 @@ def getUpdatesSolutions(event, updates, org_pref):
     """
     Compile the point-source and finite-source solutions updates for the report.
     Save the max update magnitude for downstream email threshold checking 
-    (done here to maintain legacy behavior).
+    (done here to maintain legacy behavior). Also save the max likelihood for
+    inclusion in email subject.
     """
     point_src_updates, finite_src_updates = [], []
     i_alert = -1
 
     max_mag = float('-inf')
+    max_likelihood = 0.0
     for i_update, update in enumerate(updates):
         org_curr = event['updates'][update]
         if org_curr['eew'] is True:
@@ -66,7 +68,8 @@ def getUpdatesSolutions(event, updates, org_pref):
         difftime = org_curr['tsobject'] - org_pref['tsobject']  # diff between curr. origin and pref. origin creation time
         org_curr['difftopref'] = difftime.length() + org_pref['diff']
         max_mag = max(max_mag, org_curr['magnitude'])
-
+        if 'likelihood' in org_curr:
+            max_likelihood = max(max_likelihood, org_curr['likelihood'])
         simple_author = org_curr['author'].split('@')[0]  # Returns name before '@' if it exists, otherwise returns the whole string
         format_params_point_src = getFormatParamsPointSrc(org_curr, i_update, i_alert, simple_author)
         point_src_updates.append("|".join(format_params_point_src))
@@ -77,6 +80,7 @@ def getUpdatesSolutions(event, updates, org_pref):
             finite_src_updates.append("|".join(format_params_finite_src))
     
     event['max_mag'] = max_mag
+    event['max_likelihood'] = max_likelihood
     return point_src_updates, finite_src_updates
 
 

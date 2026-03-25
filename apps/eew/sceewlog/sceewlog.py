@@ -1097,6 +1097,7 @@ class Listener(seiscomp.client.Application):
             subject = self.email_subject
             subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
             subject += ' / %.2fs' % evt['diff']
+            subject += ' / %.2f' % evt['max_likelihood']
             subject += ' / %s' % self.hostname
             subject += ' / %s' % evID
             msg['Subject'] = subject
