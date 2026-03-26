@@ -1109,14 +1109,15 @@ class Listener(seiscomp.client.Application):
             report_html = f"<html><body><pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}</pre></body></html>"
             msg = MIMEText(report_html, _subtype="html", _charset="utf-8")
             subject = self.email_subject
-            subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
-            subject += ' / %.2fs' % evt['diff']
-            subject += ' / %.2f' % evt['max_likelihood']
-            subject += ' / %s' % self.hostname
-            subject += ' / %s' % evID
+            subject += ' %s%.2f' % (evt['type'], evt['magnitude'])
+            subject += ' %.2fs' % evt['diff']
+            subject += ' %.2f' % evt['max_likelihood']
+            subject += ' %s' % self.hostname
+            subject += ' %s' % evID
             msg['Subject'] = subject
         msg['From'] = self.email_sender
-        msg['To'] = self.email_recipients[0]
+        msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.
+        #msg['To'] = self.email_recipients[0]
         utc_date = datetime.datetime.utcnow()
         utc_date.replace(tzinfo=tz.gettz('UTC'))
         msg['Date'] = utc_date.strftime("%a, %d %b %Y %T %z")
