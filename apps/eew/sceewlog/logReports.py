@@ -95,7 +95,8 @@ def getFormattedPrefOrigin(org_pref):
             f"Lon:    {org_pref['lon']:.3f}",
             f"Depth:  {org_pref['depth']:.1f}",
             f"Mag:    {org_pref['magnitude']:.2f} {org_pref['type']}",
-            f"Author: {org_pref['author']}"
+            f"Author: {org_pref['author']}",
+            f"Region: {org_pref['region']}" if org_pref['region'] else "Region: N/A"
     )
     return "\n".join(pref_params)
 

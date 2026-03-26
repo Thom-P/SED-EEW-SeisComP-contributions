@@ -756,6 +756,10 @@ class Listener(seiscomp.client.Application):
 
         self.event_dict[evID]['updates'][updateno]['eew'] =  False
 
+        # tho get region?
+        self.event_dict[evID]['updates'][updateno]['region'] = self.getRegion(evID)
+
+
         seiscomp.logging.info("Number of updates %d for event %s" % (
             len(self.event_dict[evID]['updates']), evID))
         seiscomp.logging.info("lat: %f; lon: %f; mag: %f; ot: %s" %
@@ -788,6 +792,16 @@ class Listener(seiscomp.client.Application):
             
             #evaluate to send or not the alert based on profiles
             self.alertEvaluation( evID, magID, updateno ) 
+
+    def getRegion(self, evID):
+        evt = self.cache.get(seiscomp.datamodel.Event, evID)
+        if not evt:
+            return None
+        for i in range(evt.eventDescriptionCount()):
+            desc = evt.eventDescription(i)
+            if desc.type() == 1:  # FLINN_ENGDAHL_REGION
+                return desc.text()
+        return None
 
     def execScript(self, magID, updateno, **opt):
 
