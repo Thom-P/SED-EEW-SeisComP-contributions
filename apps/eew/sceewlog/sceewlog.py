@@ -1106,7 +1106,13 @@ class Listener(seiscomp.client.Application):
             msg = MIMEText(f"sceewlog was started on {self.hostname}")
             msg['Subject'] = 'sceewlog startup message'
         else:
-            report_html = f"<html><body><pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}</pre></body></html>"
+            report_html = f"""
+            <html><body>
+            <pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}
+            </pre>
+            <p><a href="https://docs.gempa.de/sed-eew/current/apps/sceewlog.html#reports">Understanding reports</a></p>
+            </body></html>
+            """
             msg = MIMEText(report_html, _subtype="html", _charset="utf-8")
             subject = self.email_subject
             subject += ' %s%.2f' % (evt['type'], evt['magnitude'])
@@ -1117,7 +1123,6 @@ class Listener(seiscomp.client.Application):
             msg['Subject'] = subject
         msg['From'] = self.email_sender
         msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.
-        #msg['To'] = self.email_recipients[0]
         utc_date = datetime.datetime.utcnow()
         utc_date.replace(tzinfo=tz.gettz('UTC'))
         msg['Date'] = utc_date.strftime("%a, %d %b %Y %T %z")
