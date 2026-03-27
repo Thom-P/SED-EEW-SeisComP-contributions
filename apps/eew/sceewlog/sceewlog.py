@@ -799,7 +799,7 @@ class Listener(seiscomp.client.Application):
             return None
         for i in range(evt.eventDescriptionCount()):
             desc = evt.eventDescription(i)
-            if desc.type() == 1:  # FLINN_ENGDAHL_REGION
+            if desc.type() == 6:  # REGION_NAME
                 return desc.text()
         return None
 
