@@ -721,8 +721,6 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['type'] = mag.type()
         self.event_dict[evID]['updates'][updateno]['author'] = mag.creationInfo(
         ).author()
-
-        
         self.event_dict[evID]['updates'][updateno]['magnitude'] = mag.magnitude(
         ).value()
         self.event_dict[evID]['updates'][updateno]['lat'] = org.latitude().value()
@@ -758,13 +756,8 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['diff'] = difftime.length()
         self.event_dict[evID]['updates'][updateno]['ot'] = \
             org.time().value().toString("%FT%T.%2fZ")
-
         self.event_dict[evID]['updates'][updateno]['eew'] =  False
-
-        # tho get region?
         self.event_dict[evID]['updates'][updateno]['region'] = self.getRegion(evID)
-
-
         seiscomp.logging.info("Number of updates %d for event %s" % (
             len(self.event_dict[evID]['updates']), evID))
         seiscomp.logging.info("lat: %f; lon: %f; mag: %f; ot: %s" %
@@ -1070,25 +1063,17 @@ class Listener(seiscomp.client.Application):
 
             if evID not in self.event_dict.keys():
                 self.event_dict[evID] = {}
-
                 self.event_dict[evID]['published'] = False
-                
                 self.event_dict[evID]['alert'] = False
-                
                 self.event_dict[evID]['lastupdatesent'] = None
-
                 self.event_dict[evID]['updates'] = {}
-
                 self.event_dict[evID]['alert_counter'] = 0
-
                 try:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().modificationTime()
-
                 except:
                     self.event_dict[evID]['timestamp'] = \
                         evt.creationInfo().creationTime()
-
                 if self.event_dict[evID]['timestamp'] > self.latest_event:
                     self.latest_event = self.event_dict[evID]['timestamp']
                 self.event_dict[evID]['report_timer'] = seiscomp.utils.StopWatch(False)
@@ -1247,18 +1232,14 @@ class Listener(seiscomp.client.Application):
                 if comment.id() == 'likelihood':
                     self.event_dict[evID]['updates'][updateno]['likelihood'] = lhVal = \
                             float(comment.text())
-
                     seiscomp.logging.info("likelihood value: %s" % lhVal)
-
                 elif comment.id() == 'rupture-strike':
                     self.event_dict[evID]['updates'][updateno]['rupture-strike'] = \
                             float(comment.text())
-
                 elif comment.id() == 'rupture-length':
                     self.event_dict[evID]['updates'][updateno]['rupture-length'] = \
                             float(comment.text())
                 #Evaluation to send or not an alert
-                
                 magType = self.event_dict[evID]['updates'][updateno]['type']
                 
                 #only evaluate an alert when there is a likelihood value for magnitude type MVS and Mfd
@@ -1445,7 +1426,6 @@ class Listener(seiscomp.client.Application):
                 seiscomp.logging.debug('Sending alert....')
                 self.event_dict[evID]['updates'][updateno]['eew'] = True
                 self.event_dict[evID]['alert_counter'] += 1
-
                 #saving the last update sent or reported
                 self.event_dict[evID]['lastupdatesent'] = updateno 
                 self.event_dict[evID]['alert'] = True
