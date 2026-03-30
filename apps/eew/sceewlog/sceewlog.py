@@ -734,6 +734,11 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
         self.event_dict[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
         self.event_dict[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
+        if orgMethodID == "FinDer":
+            try:
+                self.event_dict[evID]['updates'][updateno]['nstorg'] = org.quality().usedPhaseCount()
+            except:
+                pass
         try:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = str(
                 mag.stationCount())
