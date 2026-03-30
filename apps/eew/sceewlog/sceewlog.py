@@ -1361,23 +1361,22 @@ class Listener(seiscomp.client.Application):
                                     seiscomp.logging.debug( "Current update has less or equal number of stations: %s than the previous reported update: %s. No further evaluation." % ( str(nstmag), str( lastEvtSent['nstmag'] ) ) )
                                     return
                             
-        #finally, checking if the mag, lat, lon and depth significantly changed
-        #edit tho: removed from magAssociate scope to always be checked
-        if len( lastEvtSent ) > 0 :
-            latDiffAbs = abs(lastEvtSent['lat'] - evt['lat'])
-            lonDiffAbs = abs(lastEvtSent['lon'] - evt['lon'])
-            depthDiffAbs = abs(lastEvtSent['depth'] - evt['depth'])
-            magDiffAbs = abs(lastEvtSent['magnitude'] - evt['magnitude'])
-            
-            #evaluating the delta values
-            if latDiffAbs >= 0.5 or lonDiffAbs >= 0.5 or depthDiffAbs >= 20 or magDiffAbs >=0.2:
-                seiscomp.logging.debug("Significant change -> deltaLat: %s, deltaLon: %s, deltaMag: %s, deltaDepth: %s" % \
-                (latDiffAbs, lonDiffAbs, magDiffAbs, depthDiffAbs) )
+            #finally, checking if the mag, lat, lon and depth significantly changed
+            if len( lastEvtSent ) > 0 :
+                latDiffAbs = abs(lastEvtSent['lat'] - evt['lat'])
+                lonDiffAbs = abs(lastEvtSent['lon'] - evt['lon'])
+                depthDiffAbs = abs(lastEvtSent['depth'] - evt['depth'])
+                magDiffAbs = abs(lastEvtSent['magnitude'] - evt['magnitude'])
                 
-            else:
-                seiscomp.logging.debug("Not significant change -> deltaLat: %s, deltaLon: %s, deltaMag: %s, deltaDepth: %s" % \
-                (latDiffAbs, lonDiffAbs, magDiffAbs, depthDiffAbs) )
-                return
+                #evaluating the delta values
+                if latDiffAbs >= 0.5 or lonDiffAbs >= 0.5 or depthDiffAbs >= 20 or magDiffAbs >=0.2:
+                    seiscomp.logging.debug("Significant change -> deltaLat: %s, deltaLon: %s, deltaMag: %s, deltaDepth: %s" % \
+                    (latDiffAbs, lonDiffAbs, magDiffAbs, depthDiffAbs) )
+                    
+                else:
+                    seiscomp.logging.debug("Not significant change -> deltaLat: %s, deltaLon: %s, deltaMag: %s, deltaDepth: %s" % \
+                    (latDiffAbs, lonDiffAbs, magDiffAbs, depthDiffAbs) )
+                    return
                         
         #first Checking if origin location is within a closed polygon
         #there might be more than one polygon but once
