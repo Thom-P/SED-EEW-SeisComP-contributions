@@ -1105,11 +1105,11 @@ class Listener(seiscomp.client.Application):
             """
             msg = MIMEText(report_html, _subtype="html", _charset="utf-8")
             subject = self.email_subject
-            subject += ' %s%.2f' % (evt['type'], evt['magnitude'])
-            subject += ' %.2fs' % evt['diff']
-            subject += ' %.2f' % evt['max_likelihood']
-            subject += ' %s' % self.hostname
-            subject += ' %s' % evID
+            subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
+            subject += ' / %.2fs' % evt['diff']
+            subject += ' / %.2f' % evt['max_likelihood']
+            subject += ' / %s' % self.hostname
+            subject += ' / %s' % evID
             msg['Subject'] = subject
         msg['From'] = self.email_sender
         msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.
