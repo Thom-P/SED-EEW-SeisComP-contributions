@@ -610,7 +610,7 @@ class Listener(seiscomp.client.Application):
             if timer.elapsed().seconds() <= self.generateReportTimeout:
                 continue
             try:
-                logReports.generateReport(evDict, self.report_headers)
+                logReports.generateReport(evDict, evID, self.report_headers)
                 seiscomp.logging.info("\n" + evDict['report'])
             except Exception as e:
                 seiscomp.logging.error(f"Error occurred while generating report for event {evID}: {e}")
@@ -1088,7 +1088,7 @@ class Listener(seiscomp.client.Application):
         # delete old events
         self.garbageCollector()
 
-    def sendMail(self, evt, evID, test=False):
+    def sendMail(self, evt, test=False):
         """
         Email reports.
         """
@@ -1108,8 +1108,7 @@ class Listener(seiscomp.client.Application):
             subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
             subject += ' / %.2fs' % evt['diff']
             subject += ' / %.2f' % evt['max_likelihood']
-            subject += ' / %s' % self.hostname
-            subject += ' / %s' % evID
+            subject += ' / %s' % evt['region'] if evt['region'] else ''
             msg['Subject'] = subject
         msg['From'] = self.email_sender
         msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.

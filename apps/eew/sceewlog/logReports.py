@@ -24,7 +24,7 @@ Author: Thomas Planès, based on previous code by Yannik Behr and Fred Massin
 import os
 
 
-def generateReport(event, report_headers):
+def generateReport(event, evID, report_headers):
     """
     Generate a report for an event, including the preferred solution,
     point-source updates, and finite-source updates.
@@ -39,12 +39,13 @@ def generateReport(event, report_headers):
     report_finite_src = ""
     if len(finite_src_updates) > 0:
         report_finite_src = header_finite_src + "\n".join(finite_src_updates) + "\n"
-    report_pref = getFormattedPrefOrigin(org_pref)
+    report_pref = getFormattedPrefOrigin(org_pref, evID)
     report = "\n\n".join([report_pref, report_point_src, report_finite_src])
     
     event['diff'] = event['updates'][updates[0]]['difftopref'] # modified, first solution should be fastest by def
     event['type'] = org_pref['type']
     event['magnitude'] = org_pref['magnitude']
+    event['region'] = org_pref['region']
     event['report'] = report
     return None
 
@@ -84,7 +85,7 @@ def getUpdatesSolutions(event, updates, org_pref):
     return point_src_updates, finite_src_updates
 
 
-def getFormattedPrefOrigin(org_pref):
+def getFormattedPrefOrigin(org_pref, evID):
     """
     Extract and format the preferred origin data for the report.
     """
@@ -96,6 +97,7 @@ def getFormattedPrefOrigin(org_pref):
             f"Depth:  {org_pref['depth']:.1f}",
             f"Mag:    {org_pref['magnitude']:.2f} {org_pref['type']}",
             f"Author: {org_pref['author']}",
+            f"Evt ID: {evID}",
             f"Region: {org_pref['region']}" if org_pref['region'] else "Region: N/A"
     )
     return "\n".join(pref_params)
