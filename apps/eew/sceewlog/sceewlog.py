@@ -556,7 +556,7 @@ class Listener(seiscomp.client.Application):
         if not self.sendemail:
             seiscomp.logging.info('Sending email has been disabled.')
         else:
-            self.sendMail({}, '', test=True)
+            self.sendMail({}, test=True)
 
         if self.storeReport:
             seiscomp.logging.info(
@@ -624,7 +624,7 @@ class Listener(seiscomp.client.Application):
             ]
             if all(emailConditions):
                 try:
-                    self.sendMail(evDict, evID)
+                    self.sendMail(evDict)
                 except Exception as e:
                     seiscomp.logging.error(f"Error occurred while sending email for event {evID}: {e}")
             if self.storeReport:
