@@ -76,14 +76,20 @@ namespace {
 class StdoutOutput : public Logging::Output {
 	public:
 		StdoutOutput() {}
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(17, 0, 0)
 		bool setup(const Util::Url &url) {}
-
+#endif
 	protected:
 		void log(const char */*channelName*/,
 		         Logging::LogLevel /*level*/,
 		         const char* msg,
-		         time_t /*time*/,
-			 uint32_t /*microseconds*/) {
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(17, 0, 0)
+				 time_t /*time*/,
+				 uint32_t /*microseconds*/)
+#else
+				 time_t /*time*/)
+#endif
+		{
 			cout << msg << endl;
 		}
 };
