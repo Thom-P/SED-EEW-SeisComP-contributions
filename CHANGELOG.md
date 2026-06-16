@@ -16,7 +16,7 @@
 
 * scfinder:
 
-  * [#91] Make Seiscomp 7 compatible
+  * [#93] Make Seiscomp 7 compatible
    
   * [#77](https://github.com/SED-EEW/SED-EEW-SeisComP-contributions/pull/77): Add option for computing the mask.
 
