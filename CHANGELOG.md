@@ -15,6 +15,8 @@
    * [#86] Update finder playback image tag to "latest" and warn against config overrides.
 
 * scfinder:
+
+  * [#91] Make Seiscomp 7 compatible
    
   * [#77](https://github.com/SED-EEW/SED-EEW-SeisComP-contributions/pull/77): Add option for computing the mask.
 
