@@ -76,12 +76,20 @@ namespace {
 class StdoutOutput : public Logging::Output {
 	public:
 		StdoutOutput() {}
-
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(17, 0, 0)
+		bool setup(const Util::Url &url) override { (void)url; return true; }
+#endif
 	protected:
 		void log(const char */*channelName*/,
 		         Logging::LogLevel /*level*/,
 		         const char* msg,
-		         time_t /*time*/) {
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(17, 0, 0)
+				 time_t /*time*/,
+				 uint32_t /*microseconds*/)
+#else
+				 time_t /*time*/)
+#endif
+		{
 			cout << msg << endl;
 		}
 };
@@ -789,7 +797,7 @@ class App : public Client::StreamApplication {
 
 				/* checks whether the timestamp of the last element in the pgas vector 
 				falls within the previous 15 seconds, continuing the loop if true */
-				if ( ( it->second->pgas.back().timestamp.seconds() ) < ( _referenceTime.seconds() - _finderMaxEnvelopeBufferDelay ) ) {
+				if ( ( it->second->pgas.back().timestamp.seconds() ) < ( _referenceTime.seconds() - _finderMaxEnvelopeBufferDelay.length() ) ) {
 					std::cout << "Instrument skipped \t PGA buffer starts (iso,s)\t PGA buffer end (iso,s)\t Reference time (iso,s)" << std::endl;
 					std::cout << it->first << "\t" << it->second->pgas.front().timestamp.iso() << "\t" << it->second->pgas.back().timestamp.iso() << "\t" << _referenceTime.iso() << std::endl;
 					std::cout << it->first << "\t" << it->second->pgas.front().timestamp.seconds() << "\t" << it->second->pgas.back().timestamp.seconds() <<  "\t" << _referenceTime.seconds() << std::endl;
@@ -801,7 +809,7 @@ class App : public Client::StreamApplication {
 					SEISCOMP_DEBUG("[%s] Instrument clipped and skipped", mseedid.c_str());
 					continue;
 				}
-				if ( ( it->second->maxPGA.lastclipped.seconds() ) >= ( _referenceTime.seconds() - _finderClipTimeout ) ) {
+				if ( ( it->second->maxPGA.lastclipped.seconds() ) >= ( _referenceTime.seconds() - _finderClipTimeout.length() ) ) {
 					SEISCOMP_DEBUG("[%s] Instrument clipped recently and skipped", mseedid.c_str());
 					continue;
 				}	
@@ -814,7 +822,7 @@ class App : public Client::StreamApplication {
 						it->second->meta->code().empty()?"--":it->second->meta->code().c_str(),
 						Coordinate(it->second->meta->latitude(), it->second->meta->longitude()),
 						it->second->maxPGA.value*100, 
-						it->second->maxPGA.timestamp
+						static_cast<double>(it->second->maxPGA.timestamp)
 					)
 				);
 
@@ -884,7 +892,7 @@ class App : public Client::StreamApplication {
 				// some method for getting the timestamp associated with the data
 				// event_continue == false when we want to stop processing
 				try {
-					(*fit)->process(tick, _latestMaxPGAs);
+					(*fit)->process(static_cast<double>(tick), _latestMaxPGAs);
 				}
 				catch ( FiniteFault::Error &e ) {
 					SEISCOMP_ERROR("Exception from FinDer::process: %s", e.what());
@@ -913,7 +921,7 @@ class App : public Client::StreamApplication {
 				_bufVarLen = _bufDefaultLen;
 			} else {
 				double rup2time = 1.5;
-				if (maxRupLen > _bufVarLen * rup2time) {
+				if (maxRupLen > _bufVarLen.length() * rup2time) {
 					double tmp = maxRupLen / rup2time;
 					_bufVarLen = min((long)tmp, _bufferLength.seconds());
 					SEISCOMP_DEBUG("Increasing data window to %ld because of active FinDer event rupture length %.1f", 
