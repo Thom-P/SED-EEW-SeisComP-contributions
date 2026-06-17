@@ -77,7 +77,7 @@ class StdoutOutput : public Logging::Output {
 	public:
 		StdoutOutput() {}
 #if SC_API_VERSION >= SC_API_VERSION_CHECK(17, 0, 0)
-		bool setup(const Util::Url &url) {}
+		bool setup(const Util::Url &url) override { (void)url; return true; }
 #endif
 	protected:
 		void log(const char */*channelName*/,
