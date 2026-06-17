@@ -58,7 +58,7 @@ def getUpdatesSolutions(event, updates, org_pref):
     inclusion in email subject.
     """
     point_src_updates, finite_src_updates = [], []
-    i_alert = -1
+    i_alert = 0
 
     max_mag = float('-inf')
     max_likelihood = 0.0
