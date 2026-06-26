@@ -22,11 +22,14 @@ import os
 import datetime
 from dateutil import tz
 import random
+import html
 import seiscomp.client, seiscomp.core
 import seiscomp.config, seiscomp.datamodel, seiscomp.system, seiscomp.utils
 import seiscomp.geo
 import socket
 import json
+
+import logReports
 
 class Listener(seiscomp.client.Application):
 
@@ -46,14 +49,13 @@ class Listener(seiscomp.client.Application):
         self.event_dict = {}
         self.origin_lookup = {}
         self.event_lookup = {}
+        self.centroid_lookup = {}  # creation time <-> centroidID table to fetch centroid origin from epicenter origin (same creation time in finder) 
         self.received_comments = []
-        self.latest_event = seiscomp.core.Time() # defaults to 01.01.1970
+        self.latest_event = seiscomp.core.Time()  # defaults to 01.01.1970
         # report settings
         self.storeReport = False
         self.ei = seiscomp.system.Environment.Instance()
-        self.report_head = "                                                                   |#St.   |                                                              \n"
-        self.report_head += "Tdiff |Type|Mag.|Lat.  |Lon.   |Depth |origin time (UTC)      |Lik.|Or.|Ma.|Str.|Len. |Author   |Creation t.            |Tdiff(current o.)\n"
-        self.report_head += "-"*int(len(self.report_head)/2-1) + "\n"
+        self.report_headers = logReports.createReportHeaders()
         self.report_directory = os.path.join(self.ei.logDir(), 'ESE_reports')
         # email settings
         self.sendemail = True
@@ -102,9 +104,7 @@ class Listener(seiscomp.client.Application):
         self.eewComment = True #
 
         self.eewScript= None 
-                               
-        
-        
+
     def validateParameters(self):
         try:
             if seiscomp.client.Application.validateParameters(self) == False:
@@ -556,7 +556,7 @@ class Listener(seiscomp.client.Application):
         if not self.sendemail:
             seiscomp.logging.info('Sending email has been disabled.')
         else:
-            self.sendMail({}, '', test=True)
+            self.sendMail({}, test=True)
 
         if self.storeReport:
             seiscomp.logging.info(
@@ -591,73 +591,6 @@ class Listener(seiscomp.client.Application):
 
         return True
 
-    def generateReport(self, evID):
-        """
-        Generate a report for an event, write it to disk and optionally send
-        it as an email.
-        """
-        seiscomp.logging.info("Generating report for event %s " % evID)
-
-        prefindex = sorted(self.event_dict[evID]['updates'].keys())[-1]
-        sout = self.report_head
-        threshold_exceeded = False
-        self.event_dict[evID]['diff'] = 9999
-        for _i in sorted(self.event_dict[evID]['updates'].keys()):
-            ed = self.event_dict[evID]['updates'][_i]
-            mag = ed['magnitude']
-            if ( mag > self.magThresh and 
-                ( self.email_sendForAlertOnly is False or 
-                  self.event_dict[evID]['alert'] )):
-                threshold_exceeded = True
-
-            difftime = ed['tsobject'] - \
-                self.event_dict[evID]['updates'][prefindex]['tsobject']
-            ed['difftopref'] = difftime.length()
-            ed['difftopref'] += self.event_dict[evID]['updates'][prefindex]['diff']
-            sout += "%6.2f|" % ed['difftopref']
-
-            sout += "%4s|" % ed['type']
-            sout += "%4.2f|" % mag
-            sout += "%6.2f|" % ed['lat']
-            sout += "%7.2f|" % ed['lon']
-            sout += "%6.2f|" % ed['depth']
-            sout += "%s|" % ed['ot']
-            if 'likelihood' in ed:
-                sout += "%4.2f|" % ed['likelihood']
-            else:
-                sout += "    |"
-            sout += "%3d|" % ed['nstorg']
-            sout += "%3s|" % ed['nstmag']
-            if 'rupture-strike' in ed:
-                sout += "%4d|" % ed['rupture-strike']
-            else:
-                sout += "    |"
-            if 'rupture-length' in ed:
-                sout += "%5.2f|" % ed['rupture-length']
-            else:
-                sout += "     |"
-            sout += "%9s|" % ed['author'][:9]
-            sout += "%s|" % ed['ts']
-            sout += "%6.2f\n" % ed['diff']
-
-            if ed['difftopref'] < self.event_dict[evID]['diff']:
-                self.event_dict[evID]['diff'] = ed['difftopref']
-
-        if self.storeReport:
-            self.event_dict[evID]['report'] = sout
-            if not os.path.isdir(self.report_directory):
-                os.makedirs(self.report_directory)
-            f = open(os.path.join(self.report_directory,
-                                  '%s_report.txt' % evID.replace('/', '_')), 'w')
-            f.writelines(self.event_dict[evID]['report'])
-            f.close()
-        self.event_dict[evID]['type'] = ed['type']
-        self.event_dict[evID]['magnitude'] = ed['magnitude']
-        seiscomp.logging.info("\n" + sout)
-        if self.sendemail and threshold_exceeded:
-            self.sendMail(self.event_dict[evID], evID)
-        self.event_dict[evID]['published'] = True
-
     def handleTimeout(self):
         self.checkExpiredTimers()
         # send heartbeat every 5 seconds
@@ -674,9 +607,31 @@ class Listener(seiscomp.client.Application):
                 continue
             seiscomp.logging.debug("There is an active timer for event %s (%s sec elapsed) "
                                     % (evID, timer.elapsed().seconds()))
-            if timer.elapsed().seconds() > self.generateReportTimeout:
-                self.generateReport(evID)
+            if timer.elapsed().seconds() <= self.generateReportTimeout:
+                continue
+            try:
+                logReports.generateReport(evDict, evID, self.report_headers)
+                seiscomp.logging.info("\n" + evDict['report'])
+            except Exception as e:
+                seiscomp.logging.error(f"Error occurred while generating report for event {evID}: {e}")
                 timer.reset()
+                continue
+
+            emailConditions = [
+                self.sendemail,
+                evDict['max_mag'] > self.magThresh,
+                not self.email_sendForAlertOnly or evDict['alert'] is True
+            ]
+            if all(emailConditions):
+                try:
+                    self.sendMail(evDict)
+                except Exception as e:
+                    seiscomp.logging.error(f"Error occurred while sending email for event {evID}: {e}")
+            if self.storeReport:
+                logReports.saveReportToDisk(evID, self.report_directory, evDict['report'])
+            seiscomp.logging.info("\n" + evDict['report'])
+            evDict['published'] = True
+            timer.reset()
 
     def setupGenerateReportTimer(self, magID):
         """
@@ -709,6 +664,28 @@ class Listener(seiscomp.client.Application):
             seiscomp.logging.warning(not_in_cache)
             return
 
+        # Fetch corresponding centroid origin if any
+        try:
+            orgMethodID = org.methodID()
+        except:
+            orgMethodID = None
+            seiscomp.logging.debug(f"Origin {orgID} does not have a methodID, not looking for a centroid origin.")
+        centroid = None
+        if orgMethodID == "FinDer":
+            try:
+                orgCreationTime = org.creationInfo().creationTime()
+            except:
+                orgCreationTime = None
+                seiscomp.logging.debug(f"FinDer origin {orgID} does not have a creation time. Cannot look for a centroid origin.")
+            
+            if orgCreationTime and orgCreationTime.iso() in self.centroid_lookup:
+                centroidID = self.centroid_lookup[orgCreationTime.iso()]
+                centroid = self.cache.get(seiscomp.datamodel.Origin, centroidID)
+                if centroid:
+                    seiscomp.logging.debug(f"Matching centroid found for origin {orgID} / magnitude {magID}")
+                else:
+                    seiscomp.logging.warning(f"No matching centroid found for origin {orgID} / magnitude {magID}")        
+        
         # use modification time if available, otherwise go for creation time
         try:
             # e.g. "1970-01-01T00:00:00.0000Z"
@@ -749,7 +726,17 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['lat'] = org.latitude().value()
         self.event_dict[evID]['updates'][updateno]['lon'] = org.longitude().value()
         self.event_dict[evID]['updates'][updateno]['depth'] = org.depth().value()
+        centroid_lat, centroid_lon = None, None
+        if centroid:
+            centroid_lat, centroid_lon = centroid.latitude().value(), centroid.longitude().value()
+        self.event_dict[evID]['updates'][updateno]['centroid_lat'] = centroid_lat
+        self.event_dict[evID]['updates'][updateno]['centroid_lon'] = centroid_lon
         self.event_dict[evID]['updates'][updateno]['nstorg'] = org.arrivalCount()
+        if orgMethodID == "FinDer":
+            try:
+                self.event_dict[evID]['updates'][updateno]['nstorg'] = org.quality().usedPhaseCount()
+            except:
+                pass
         try:
             self.event_dict[evID]['updates'][updateno]['nstmag'] = str(
                 mag.stationCount())
@@ -769,9 +756,8 @@ class Listener(seiscomp.client.Application):
         self.event_dict[evID]['updates'][updateno]['diff'] = difftime.length()
         self.event_dict[evID]['updates'][updateno]['ot'] = \
             org.time().value().toString("%FT%T.%2fZ")
-        
         self.event_dict[evID]['updates'][updateno]['eew'] =  False
-        
+        self.event_dict[evID]['updates'][updateno]['region'] = self.getRegion(evID)
         seiscomp.logging.info("Number of updates %d for event %s" % (
             len(self.event_dict[evID]['updates']), evID))
         seiscomp.logging.info("lat: %f; lon: %f; mag: %f; ot: %s" %
@@ -804,6 +790,16 @@ class Listener(seiscomp.client.Application):
             
             #evaluate to send or not the alert based on profiles
             self.alertEvaluation( evID, magID, updateno ) 
+
+    def getRegion(self, evID):
+        evt = self.cache.get(seiscomp.datamodel.Event, evID)
+        if not evt:
+            return None
+        for i in range(evt.eventDescriptionCount()):
+            desc = evt.eventDescription(i)
+            if desc.type() == 6:  # REGION_NAME
+                return desc.text()
+        return None
 
     def execScript(self, magID, updateno, **opt):
 
@@ -979,6 +975,7 @@ class Listener(seiscomp.client.Application):
     def handleOrigin(self, org, parentID):
         """
         Add origins to the cache.
+        Create lookup table from creationTime to centroid ID.
         """
         try:
             seiscomp.logging.debug("Received origin %s" % org.publicID())
@@ -987,6 +984,19 @@ class Listener(seiscomp.client.Application):
             info = traceback.format_exception(*sys.exc_info())
             for i in info:
                 sys.stderr.write(i)
+            
+        # Add lookup entry if centroid origin
+        try:
+            otype = org.type()
+        except:
+            otype = None
+        if  otype == 1: # 1 == "CENTROID"; (and org.methodID() == "FinDer", nb undefined in scfinder)
+            creationTime = org.creationInfo().creationTime()
+            seiscomp.logging.debug(f"Origin {org.publicID()} created at {creationTime} is a FinDer CENTROID, adding it to centroid lookup table")
+            try:
+                self.centroid_lookup[creationTime.iso()] = org.publicID()
+            except Exception as e:
+                seiscomp.logging.error(f"Error occurred while adding origin to centroid lookup table: {repr(e)}")
 
     def handlePick(self, pk, parentID):
         """
@@ -1022,6 +1032,10 @@ class Listener(seiscomp.client.Application):
                 self.event_lookup.pop(_orgID)
                 debuglog="Expired origin %s (ev %s)"
                 seiscomp.logging.debug(debuglog % (_orgID, _evID))
+                creationTime = self.cache.get(seiscomp.datamodel.Origin, _orgID).creationInfo().creationTime()
+                if creationTime and creationTime.iso() in self.centroid_lookup:
+                    centroidID = self.centroid_lookup.pop(creationTime.iso())
+                    seiscomp.logging.debug(f"Expired associated centroid {centroidID}")
         
         magnitudesRemoved = set()
         if originsRemoved:
@@ -1074,23 +1088,30 @@ class Listener(seiscomp.client.Application):
         # delete old events
         self.garbageCollector()
 
-    def sendMail(self, evt, evID, test=False):
+    def sendMail(self, evt, test=False):
         """
         Email reports.
         """
         if test:
-            msg = MIMEText('sceewlog was started.')
+            msg = MIMEText(f"sceewlog was started on {self.hostname}")
             msg['Subject'] = 'sceewlog startup message'
         else:
-            msg = MIMEText(evt['report'])
+            report_html = f"""
+            <html><body>
+            <pre style='font-family: monospace; font-size: 13px;'>{html.escape(evt['report'])}
+            </pre>
+            <p><a href="https://docs.gempa.de/sed-eew/current/apps/sceewlog.html#reports">Understanding reports</a></p>
+            </body></html>
+            """
+            msg = MIMEText(report_html, _subtype="html", _charset="utf-8")
             subject = self.email_subject
             subject += ' / %s%.2f' % (evt['type'], evt['magnitude'])
             subject += ' / %.2fs' % evt['diff']
-            subject += ' / %s' % self.hostname
-            subject += ' / %s' % evID
+            subject += ' / %.2f' % evt['max_likelihood']
+            subject += ' / %s' % evt['region'] if evt['region'] else ''
             msg['Subject'] = subject
         msg['From'] = self.email_sender
-        msg['To'] = self.email_recipients[0]
+        msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.
         utc_date = datetime.datetime.utcnow()
         utc_date.replace(tzinfo=tz.gettz('UTC'))
         msg['Date'] = utc_date.strftime("%a, %d %b %Y %T %z")
@@ -1211,17 +1232,13 @@ class Listener(seiscomp.client.Application):
                     self.event_dict[evID]['updates'][updateno]['likelihood'] = lhVal = \
                             float(comment.text())
                     seiscomp.logging.info("likelihood value: %s" % lhVal)
-                            
                 elif comment.id() == 'rupture-strike':
                     self.event_dict[evID]['updates'][updateno]['rupture-strike'] = \
                             float(comment.text())
-                
                 elif comment.id() == 'rupture-length':
                     self.event_dict[evID]['updates'][updateno]['rupture-length'] = \
                             float(comment.text())
-                
                 #Evaluation to send or not an alert
-                
                 magType = self.event_dict[evID]['updates'][updateno]['type']
                 
                 #only evaluate an alert when there is a likelihood value for magnitude type MVS and Mfd
@@ -1407,7 +1424,6 @@ class Listener(seiscomp.client.Application):
                 seiscomp.logging.debug('Sending alert....')
                 self.event_dict[evID]['updates'][updateno]['eew'] = True
                 self.event_dict[evID]['alert_counter'] += 1
-                 
                 #saving the last update sent or reported
                 self.event_dict[evID]['lastupdatesent'] = updateno 
                 self.event_dict[evID]['alert'] = True
