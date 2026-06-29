@@ -1117,8 +1117,7 @@ class Listener(seiscomp.client.Application):
             msg['Subject'] = subject
         msg['From'] = self.email_sender
         msg['To'] = "eew-recipients" # just for display, actual recipients are passed to sendmail() as a list.
-        utc_date = datetime.datetime.utcnow()
-        utc_date.replace(tzinfo=tz.gettz('UTC'))
+        utc_date = datetime.datetime.now(tz=tz.gettz('UTC'))
         msg['Date'] = utc_date.strftime("%a, %d %b %Y %T %z")
         try:
             if self.ssl:
