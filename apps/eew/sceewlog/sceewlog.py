@@ -629,7 +629,7 @@ class Listener(seiscomp.client.Application):
                     seiscomp.logging.error(f"Error occurred while sending email for event {evID}: {e}")
             if self.storeReport:
                 logReports.saveReportToDisk(evID, self.report_directory, evDict['report'])
-            seiscomp.logging.info("\n" + evDict['report'])
+            # seiscomp.logging.info("\n" + evDict['report'])
             evDict['published'] = True
             timer.reset()
 
