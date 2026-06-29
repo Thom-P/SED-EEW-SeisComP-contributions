@@ -104,27 +104,27 @@ def getFormattedPrefOrigin(org_pref, evID):
 
 
 def getFormatParamsPointSrc(org, i_update, i_alert, simple_author):
-        """
-        Extract and format the point-source solution data for the current update.
-        """
-        format_params_point_src = (
-            f"{i_update:>3d}",
-            f"{org['difftopref']:>6.2f}",
-            f"{org['type']:>4s}",
-            f"{org['magnitude']:>5.2f}", 
-            f"{org['lat']:>7.3f}", 
-            f"{org['lon']:>8.3f}", 
-            f"{org['depth']:>6.1f}", 
-            f"{org['ot'][11:22]:>12s}", 
-            f"{org['likelihood']:5.2f}" if 'likelihood' in org else " " * 5,
-            f"{org['nstorg']:>3d}",
-            f"{org['nstmag']:>3s}", 
-            f" {org['ts'][11:22]:s}", 
-            f" {simple_author[:9]:<9s}", 
-            f"{org['diff']:>7.2f}",
-            f"{i_alert:>4d}" if org['eew'] else " " * 4
-        )
-        return format_params_point_src
+    """
+    Extract and format the point-source solution data for the current update.
+    """
+    format_params_point_src = (
+        f"{i_update:>3d}",
+        f"{org['difftopref']:>6.2f}",
+        f"{org['type']:>4s}",
+        f"{org['magnitude']:>5.2f}", 
+        f"{org['lat']:>7.3f}", 
+        f"{org['lon']:>8.3f}", 
+        f"{org['depth']:>6.1f}", 
+        f"{org['ot'][11:22]:>12s}", 
+        f"{org['likelihood']:5.2f}" if 'likelihood' in org else " " * 5,
+        f"{org['nstorg']:>3d}",
+        f"{org['nstmag']:>3s}", 
+        f" {org['ts'][11:22]:s}", 
+        f" {simple_author[:9]:<9s}", 
+        f"{org['diff']:>7.2f}",
+        f"{i_alert:>4d}" if org['eew'] else " " * 4
+    )
+    return format_params_point_src
 
 
 def getFormatParamsFiniteSource(org, i_update, simple_author):
@@ -164,14 +164,14 @@ def createReportHeaders():
 
 
 def saveReportToDisk(evID, report_directory, report):
-        """
-        Store the generated report on disk.
-        """
-        if not os.path.isdir(report_directory):
-            os.makedirs(report_directory)
-        with open(os.path.join(report_directory,
-                                f"{evID.replace('/', '_')}_report.txt"), 'w') as f:
-            f.writelines(report)
+    """
+    Store the generated report on disk.
+    """
+    if not os.path.isdir(report_directory):
+        os.makedirs(report_directory)
+    with open(os.path.join(report_directory,
+                            f"{evID.replace('/', '_')}_report.txt"), 'w') as f:
+        f.writelines(report)
 
 
 if __name__ == "__main__":
