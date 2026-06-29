@@ -4,6 +4,8 @@
 
 * sceewlog
 
+   * [#95] Create separate logReport module for email send; add centroid coord in separate finite source table; add app alert index, and modify email subject 
+
    * [#89] Change default report dir from VS_reports to ESE_reports
 
    * [#87] Update latest_event initial value to comply with seiscomp 7 API and avoid crash
