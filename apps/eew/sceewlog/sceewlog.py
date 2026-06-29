@@ -1032,7 +1032,12 @@ class Listener(seiscomp.client.Application):
                 self.event_lookup.pop(_orgID)
                 debuglog="Expired origin %s (ev %s)"
                 seiscomp.logging.debug(debuglog % (_orgID, _evID))
-                creationTime = self.cache.get(seiscomp.datamodel.Origin, _orgID).creationInfo().creationTime()
+                try:
+                    org = self.cache.get(seiscomp.datamodel.Origin, _orgID)
+                    creationTime = org.creationInfo().creationTime()
+                except:
+                    creationTime = None
+                
                 if creationTime and creationTime.iso() in self.centroid_lookup:
                     centroidID = self.centroid_lookup.pop(creationTime.iso())
                     seiscomp.logging.debug(f"Expired associated centroid {centroidID}")
