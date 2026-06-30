@@ -239,7 +239,7 @@ class App : public Client::StreamApplication {
 			// Default duration of data skipping following clipping is 30s
 			_finderClipTimeout.set(30);
 			// Default preferred data units
-			_preferredGainUnits = "M/S**2";
+			_preferredGainUnits = "M/S";
 
 			_finderAmplitudesDirty = false;
 			_finderScanDataDirty = false;
@@ -431,8 +431,8 @@ class App : public Client::StreamApplication {
 			}
 
 			// Convert to all signal units
-			eewCfg.wantSignal[Processing::WaveformProcessor::MeterPerSecondSquared] = true;
-			eewCfg.wantSignal[Processing::WaveformProcessor::MeterPerSecond] = false;
+			eewCfg.wantSignal[Processing::WaveformProcessor::MeterPerSecondSquared] = false;
+			eewCfg.wantSignal[Processing::WaveformProcessor::MeterPerSecond] = true;
 			eewCfg.wantSignal[Processing::WaveformProcessor::Meter] = false;
 
 			_eewProc.setConfiguration(eewCfg);
@@ -613,7 +613,7 @@ class App : public Client::StreamApplication {
 		void handleEnvelope(const Processing::EEWAmps::BaseProcessor *proc,
 		                    double value, const Core::Time &timestamp,
 		                    bool clipped) {
-			if ( proc->signalUnit() != Processing::WaveformProcessor::MeterPerSecondSquared ) {
+			if ( proc->signalUnit() != Processing::WaveformProcessor::MeterPerSecond ) {
 				SEISCOMP_WARNING("Unexpected envelope unit: %s",
 				                 proc->signalUnit().toString());
 				return;
