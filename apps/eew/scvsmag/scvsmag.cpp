@@ -276,7 +276,7 @@ bool VsMagnitude::initConfiguration() {
 
 	// constant depth offset
 	try {
-		_depthOffset = configGetFloat("vsmag.depthOffset");
+		_depthOffset = configGetDouble("vsmag.depthOffset");
 		SEISCOMP_INFO("vsmag.depthOffset configured to %f km", _depthOffset);
 	} catch ( ... ) {
 		SEISCOMP_INFO("vsmag.depthOffset not configured, using default: %f km", _depthOffset);
