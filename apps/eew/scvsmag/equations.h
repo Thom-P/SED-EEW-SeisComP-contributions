@@ -19,9 +19,12 @@
 
 class VsEquations {
 private:
-	float mag, eqlat, eqlon, norm;
+	float mag, eqlat, eqlon, eqdepth, norm;
 	// HA, HV, HD, ZA, ZV, ZD
 	static const float attenuation[2][6][2][7];
+	
+	static bool isDepthVariable;
+	static float depthOffset;
 public:
 	VsEquations();
 	virtual ~VsEquations();
@@ -55,6 +58,14 @@ public:
 	void setmag(float magnitude);
 	const float getnorm();
 	void setnorm(float norminit);
+	const float geteqdepth();
+	void seteqdepth(float eventdepth);
+	
+	static void setIsDepthVariable(bool isDepthVar) { isDepthVariable = isDepthVar; };
+    static void setDepthOffset(float depthOff) { depthOffset = depthOff; };
+
+    static bool  getIsDepthVariable() { return isDepthVariable; }
+    static float getDepthOffset()   { return depthOffset; }
 
 };
 

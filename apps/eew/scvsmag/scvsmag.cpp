@@ -86,6 +86,12 @@ VsMagnitude::VsMagnitude(int argc, char **argv) :
 
 	// maximum epicentral distance; -1 means no restriction
 	_maxepicdist = -1.0f;
+
+	// use variable depth for hypocentral distance calculation; default is false (constant depth of 3 km)
+	_isDepthVariable = false;
+
+	// constant offset for hypocentral distance calculation
+	_depthOffset = 0.0f;
 }
 
 VsMagnitude::~VsMagnitude() {
@@ -259,6 +265,22 @@ bool VsMagnitude::initConfiguration() {
 	} catch ( ... ) {
 		SEISCOMP_INFO("Logging envelopes is turned off.");
 	}
+	
+	// variable hypocentral depth
+	try {
+		_isDepthVariable = configGetBool("vsmag.isDepthVariable");
+		SEISCOMP_INFO("vsmag.isDepthVariable configured to %s", Core::toString(_isDepthVariable).c_str());
+	} catch ( ... ) {
+		SEISCOMP_INFO("vsmag.isDepthVariable not configured, using default: %s", Core::toString(_isDepthVariable).c_str());
+	}
+
+	// constant depth offset
+	try {
+		_depthOffset = configGetFloat("vsmag.depthOffset");
+		SEISCOMP_INFO("vsmag.depthOffset configured to %f km", _depthOffset);
+	} catch ( ... ) {
+		SEISCOMP_INFO("vsmag.depthOffset not configured, using default: %f km", _depthOffset);
+	}
 
 	return true;
 }
@@ -360,6 +382,11 @@ bool VsMagnitude::init() {
 				60 * 60 * 24, 30);
 		_envelopeInfoFile->subscribe(_envelopeInfoChannel);
 	}
+
+	// Set depth optional depth variability of hypocenter in VsEquations (default is false, constant depth of 3 km) 
+	vs.setIsDepthVariable(_isDepthVariable);
+	vs.setDepthOffset(_depthOffset);
+
 	return true;
 }
 
@@ -774,6 +801,7 @@ void VsMagnitude::process(VsEvent *evt, Event *event) {
 	evt->allThresholdStationsCount = 0;
 	vs.seteqlat(evt->lat);
 	vs.seteqlon(evt->lon);
+	vs.seteqdepth(evt->dep);
 
 	vector<VsInput> inputs;
 

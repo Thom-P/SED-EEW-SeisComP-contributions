@@ -181,6 +181,9 @@ private:
 	double _maxepicdist;
 	double _maxazgap;
 	bool _logenvelopes;
+
+	bool _isDepthVariable; // variable depth for hypocentral distance calculation; default is false (constant depth of 3 km)
+	double _depthOffset; // constant offset for hypocentral distance calculation (default is 0.0 km)
 };
 
 }

@@ -125,8 +125,13 @@ float VsEquations::edist(const float stlat, const float stlon) {
 }
 
 float VsEquations::edistalt(const float stlat, const float stlon) {
-	// assume a constant depth of 3 km
-	return sqrt(pow(VsEquations::edist(stlat, stlon), 2) + 9);
+	// default: assume a constant event depth of 3 km (original VS behavior)
+	float h = 3.0f;
+	if (isDepthVariable) {
+		// get event depth plus an optional constant depth offset
+		h = eqdepth + depthOffset;
+	}
+	return sqrt(pow(VsEquations::edist(stlat, stlon), 2) + pow(h, 2));
 }
 
 float VsEquations::amplitude(const float a, const float b, const float c1,
@@ -210,4 +215,12 @@ void VsEquations::seteqlon(float eventlon) {
 
 const float VsEquations::geteqlon() {
 	return eqlon;
+}
+
+void VsEquations::seteqdepth(float eventdepth) {
+	eqdepth = eventdepth;
+}
+
+const float VsEquations::geteqdepth() {
+	return eqdepth;
 }
