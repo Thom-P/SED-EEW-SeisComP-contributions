@@ -55,6 +55,9 @@ const float VsEquations::attenuation[2][6][2][7] =
   {{ 1.04, -1.12e-5, 1.38, 1.18, -1.37, -4.74   , 0.25 }, //S,ZD,rock
    { 1.03, -4.92e-6, 1.55, 1.08, -1.36, -4.57   , 0.28 }}}}; //S,ZD,soil
 
+bool  VsEquations::isDepthVariable = false;
+float VsEquations::depthOffset = 0.0f;
+
 const float VsEquations::geta(int PSclass, int SoilClass, int WaveType) {
 	return VsEquations::attenuation[PSclass][SoilClass][WaveType][0];
 }
