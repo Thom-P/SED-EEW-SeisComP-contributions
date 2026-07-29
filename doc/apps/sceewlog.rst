@@ -50,57 +50,72 @@ Please refer to `ActiveMQ`_ for setting up an ActiveMQ broker.
 
 Reports
 =======
+A report from _sceewlog_ gathers the parameters of all the solutions issued by :ref:`scvsmag` and :ref:`scfinder` for a given event.
+The reports can be saved to disk and/or sent via email. The report format was updated in July 2026. The new and legacy report formats are described below.
 
-New format (from April 2026):
+New format (from July 2026):
 ------------------------------
-Description coming soon.
 The new report format separates point-source and finite-source solutions into two distinct tables,
-and include additional information such as centroid coordinates, and alert parameters. 
-Below is an example of the first few lines of a report file:
+and include additional information such as centroid coordinates, and alert indices.
+When sent via email, the subject of the email is comprised of the following summary information about the report:
+EEW Agency / Magnitude type and value / Time difference between the first solution creation and the origin time / Maximum likelihood / Epicenter region
+Note that the magnitude type and value correspond to the reference EEW solution (i.e., the last issued in the report).
+For example, the subject of an email report might look like this:
+EEW SED / MVS4.05 / 5.19s / 0.99 / Elm GL
+
+and a corresponding report extract:
 
 .. code-block:: sh
-
+ 
    EEW reference solution:
 
-   Time:   2020-10-25T19:35:43.19 UTC
+   Time:   2020-10-25T19:35:43.18 UTC
    Lat:    46.883
    Lon:    9.164
    Depth:  5.0
    Mag:    4.05 MVS
-   Author: scvsmag@90ad374fe739
+   Author: scvsmag@myserver
+   Evt ID: gfz2020uzys
+   Region: Switzerland
 
    Table 1: Point-source solutions
 
                                                                   | #St.  |                               | Alert 
     #|dt-ref|Type|  Mag|   Lat |    Lon | Depth|  Orig time | Lik | Or| Ma|   Creation | Author   |dt-curr| App
     ---------------------------------------------------------------------------------------------------------------
-    0|  4.98| MVS| 4.25| 46.910|   9.232|  10.0| 19:35:40.84| 0.99|  3|  3| 19:35:48.17| scvsmag  |   7.33|   0
-    1|  5.52| Mfd| 4.20| 46.916|   9.132|  10.0| 19:35:42.15| 0.94|  0|  5| 19:35:48.71| scfinder |   6.56|   1
-    2|  5.96| MVS| 4.87| 46.910|   9.232|  10.0| 19:35:40.84| 0.99|  3|  3| 19:35:49.15| scvsmag  |   8.31|   2
-    3|  6.98| MVS| 4.10| 46.904|   9.125|  10.0| 19:35:41.59| 0.40|  7|  7| 19:35:50.16| scvsmag  |   8.57|   3
-    4|  7.25| Mfd| 4.30| 46.908|   9.132|  10.0| 19:35:42.13| 0.87|  0|  4| 19:35:50.44| scfinder |   8.31|   4
-    5|  7.98| MVS| 4.34| 46.904|   9.125|  10.0| 19:35:41.59| 0.99|  7|  7| 19:35:51.17| scvsmag  |   9.57|   5
+    0|  5.19| MVS| 4.25| 46.910|   9.232|  10.0| 19:35:40.84| 0.99|  3|  3| 19:35:48.37| scvsmag  |   7.53|   1
+    1|  5.83| Mfd| 4.00| 46.916|   9.132|  10.0| 19:35:42.15| 0.90|  8|  4| 19:35:49.01| scfinder |   6.87|   2
+    2|  6.19| MVS| 4.09| 46.904|   9.125|  10.0| 19:35:41.59| 0.99|  7|  7| 19:35:49.37| scvsmag  |   7.78|   3
+    3|  6.79| Mfd| 4.30| 46.908|   9.132|  10.0| 19:35:42.13| 0.87|  9|  4| 19:35:49.97| scfinder |   7.84|   4
+    4|  7.18| MVS| 4.17| 46.904|   9.125|  10.0| 19:35:41.59| 0.99|  7|  7| 19:35:50.37| scvsmag  |   8.77|   5
+    5|  8.18| MVS| 4.39| 46.904|   9.125|  10.0| 19:35:41.59| 0.99|  7|  7| 19:35:51.37| scvsmag  |   9.77|   6
    ...
    ...
    ...
-   37| 33.20| MVS| 4.02| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:16.39| scvsmag  |  33.20|  37
-   38| 34.18| MVS| 4.03| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:17.37| scvsmag  |  34.18|  38
-   39| 35.20| MVS| 4.05| 46.883|   9.164|   5.0| 19:35:43.19| 0.99|202|200| 19:36:18.39| scvsmag  |  35.20|  39
+   36| 32.43| MVS| 4.01| 46.883|   9.164|   5.0| 19:35:43.18| 0.99|200|198| 19:36:15.61| scvsmag  |  32.43|  37
+   37| 33.42| MVS| 4.02| 46.883|   9.164|   5.0| 19:35:43.18| 0.99|200|198| 19:36:16.61| scvsmag  |  33.42|  38
+   38| 34.42| MVS| 4.03| 46.883|   9.164|   5.0| 19:35:43.18| 0.99|200|198| 19:36:17.61| scvsmag  |  34.42|  39
+   39| 35.43| MVS| 4.05| 46.883|   9.164|   5.0| 19:35:43.18| 0.99|200|198| 19:36:18.61| scvsmag  |  35.43|  40
 
    Table 2: Finite-source solutions
 
             |   Centroid     |
     #|dt-ref|   Lat |    Lon | Str| Len |   Creation | Author
-   -----------------------------------------------------------
-    1|  5.52| 46.916|   9.132|  45|  0.3| 19:35:48.71| scfinder 
-    4|  7.25| 46.908|   9.132| 175|  0.8| 19:35:50.44| scfinder 
-    6|  8.51| 46.908|   9.132| 175|  1.3| 19:35:51.69| scfinder 
-    9| 10.25| 46.908|   9.132| 175|  1.3| 19:35:53.44| scfinder 
-   11| 11.51| 46.953|   9.132|  70|  1.3| 19:35:54.69| scfinder 
-   13| 12.51| 46.953|   9.132|  70|  1.3| 19:35:55.69| scfinder 
-   16| 14.25| 46.964|   9.132|  45|  1.3| 19:35:57.44| scfinder 
-   18| 15.25| 46.964|   9.164|  45|  1.3| 19:35:58.44| scfinder 
-   24| 20.25| 46.919|   9.134|  45|  1.3| 19:36:03.44| scfinder
+    -----------------------------------------------------------
+    1|  5.83| 46.916|   9.132| 175|  0.5| 19:35:49.01| scfinder 
+    3|  6.79| 46.908|   9.132| 135|  0.6| 19:35:49.97| scfinder 
+    6|  8.24| 46.908|   9.132| 175|  1.3| 19:35:51.42| scfinder 
+    9| 10.78| 46.908|   9.132| 175|  1.3| 19:35:53.96| scfinder 
+   11| 11.78| 46.953|   9.132|  70|  1.3| 19:35:54.96| scfinder 
+   14| 13.24| 46.953|   9.132|  70|  1.3| 19:35:56.42| scfinder 
+   16| 14.24| 46.964|   9.175|  45|  1.3| 19:35:57.43| scfinder 
+   17| 15.24| 46.964|   9.164|  45|  1.3| 19:35:58.42| scfinder 
+   24| 21.24| 46.919|   9.134|  45|  1.3| 19:36:04.43| scfinder 
+
+The first block contains the parameters of the reference EEW solution, e.g., the last one issued in the report.
+Table 1 contains the point-source solution parameters, composed of the VS solutions and Finder epicenter parameters.
+Table 2 contains the finder finite-source parameters: centroid coordinates, rupture strike and length. 
+Each finder finite-source solution has a corresponding point-source solution in Table 1 with matching index.
 
 
 Legacy format (retired in March 2026):
